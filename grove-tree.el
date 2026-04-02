@@ -129,6 +129,7 @@ Directories come first, then files.  Hidden files are excluded."
 
 (defun grove-tree--toggle-expand ()
   "Toggle expand/collapse for the directory node at point."
+  (interactive)
   (let ((ewoc-node (grove-tree--node-at-point)))
     (when ewoc-node
       (let ((node (ewoc-data ewoc-node)))
@@ -160,7 +161,8 @@ Directories come first, then files.  Hidden files are excluded."
         (ewoc-delete grove-tree--ewoc to-delete)))))
 
 (defun grove-tree--open-file ()
-  "Open the file at point in the main window."
+  "Open the file at point in the main window and focus it."
+  (interactive)
   (let ((ewoc-node (grove-tree--node-at-point)))
     (when ewoc-node
       (let ((node (ewoc-data ewoc-node)))
@@ -194,7 +196,7 @@ Directories come first, then files.  Hidden files are excluded."
         (let ((inhibit-read-only t))
           (erase-buffer)
           (setq grove-tree--ewoc
-                (ewoc-create #'grove-tree--print "" "" t))
+                (ewoc-create #'grove-tree--print "" ""))
           (dolist (node (grove-tree--list-entries grove-directory 0))
             (ewoc-enter-last grove-tree--ewoc node)))))))
 
