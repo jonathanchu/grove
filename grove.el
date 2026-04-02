@@ -220,6 +220,7 @@ Only re-parses files whose mtime has changed."
     (define-key map (kbd "b") #'grove-backlinks)
     (define-key map (kbd "i") #'grove-inbox-review)
     (define-key map (kbd "l") #'grove-link-insert)
+    (define-key map (kbd "g") #'grove-graph)
     map)
   "Keymap for grove commands, bound under a prefix key.
 Bind this to a prefix key in your init file, e.g.:
@@ -234,5 +235,6 @@ Bind this to a prefix key in your init file, e.g.:
 (require 'grove-backlink)
 (require 'grove-inbox)
 (require 'grove-link)
+(require 'grove-graph)
 
 ;;; grove.el ends here
