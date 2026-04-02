@@ -244,9 +244,9 @@ Directories come first, then files.  Hidden files are excluded."
   :group 'grove
   (setq-local cursor-type 'bar
               truncate-lines t
-              hl-line-mode t
               mode-line-format nil
-              header-line-format (propertize " Grove" 'face 'bold)))
+              header-line-format (propertize " Grove" 'face 'bold))
+  (hl-line-mode 1))
 
 ;;;; Open / Close
 
