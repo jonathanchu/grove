@@ -251,7 +251,7 @@ Directories come first, then files.  Hidden files are excluded."
 (define-derived-mode grove-tree-mode special-mode "Grove-Tree"
   "Major mode for the grove file tree sidebar."
   :group 'grove
-  (setq-local cursor-type 'bar
+  (setq-local cursor-type nil
               truncate-lines t
               mode-line-format nil
               header-line-format (propertize " Grove" 'face 'bold))
