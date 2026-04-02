@@ -198,16 +198,23 @@ Directories come first, then files.  Hidden files are excluded."
 
 ;;;; Navigation
 
+(defun grove-tree--skip-blank-lines (direction)
+  "Move in DIRECTION (1 or -1) skipping blank lines."
+  (forward-line direction)
+  (while (and (not (eobp)) (not (bobp))
+              (looking-at-p "^$"))
+    (forward-line direction)))
+
 (defun grove-tree-next ()
   "Move to the next entry and preview it."
   (interactive)
-  (forward-line 1)
+  (grove-tree--skip-blank-lines 1)
   (grove-tree--preview))
 
 (defun grove-tree-previous ()
   "Move to the previous entry and preview it."
   (interactive)
-  (forward-line -1)
+  (grove-tree--skip-blank-lines -1)
   (grove-tree--preview))
 
 ;;;; Refresh
