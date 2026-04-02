@@ -160,6 +160,18 @@ Directories come first, then files.  Hidden files are excluded."
         (setq next (ewoc-next grove-tree--ewoc next))
         (ewoc-delete grove-tree--ewoc to-delete)))))
 
+(defun grove-tree--preview ()
+  "Preview the file at point in the main window without switching focus."
+  (interactive)
+  (let ((ewoc-node (grove-tree--node-at-point)))
+    (when ewoc-node
+      (let ((node (ewoc-data ewoc-node)))
+        (unless (grove-tree-node-directory-p node)
+          (let ((path (grove-tree-node-path node))
+                (win (or (grove-tree--main-window) (next-window))))
+            (with-selected-window win
+              (find-file path))))))))
+
 (defun grove-tree--open-file ()
   "Open the file at point in the main window and focus it."
   (interactive)
@@ -183,6 +195,20 @@ Directories come first, then files.  Hidden files are excluded."
          (unless (eq win tree-win)
            (unless (window-parameter win 'window-side)
              (throw 'found win))))))))
+
+;;;; Navigation
+
+(defun grove-tree-next ()
+  "Move to the next entry and preview it."
+  (interactive)
+  (forward-line 1)
+  (grove-tree--preview))
+
+(defun grove-tree-previous ()
+  "Move to the previous entry and preview it."
+  (interactive)
+  (forward-line -1)
+  (grove-tree--preview))
 
 ;;;; Refresh
 
@@ -208,8 +234,8 @@ Directories come first, then files.  Hidden files are excluded."
     (define-key map (kbd "TAB") #'grove-tree--toggle-expand)
     (define-key map (kbd "g") #'grove-tree-refresh)
     (define-key map (kbd "q") #'grove-tree-close)
-    (define-key map (kbd "n") #'next-line)
-    (define-key map (kbd "p") #'previous-line)
+    (define-key map (kbd "n") #'grove-tree-next)
+    (define-key map (kbd "p") #'grove-tree-previous)
     map)
   "Keymap for `grove-tree-mode'.")
 
