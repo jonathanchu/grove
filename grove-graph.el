@@ -181,8 +181,9 @@ Returns an alist of (SOURCE-TITLE . (TARGET-TITLE ...))."
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer)
-        (insert svg)
-        (image-mode)))
+        (insert-image (create-image svg 'svg t))
+        (goto-char (point-min))
+        (special-mode)))
     (grove-graph--display buf)
     (message "Graph: %d notes, %d links"
              (length adjacency)
