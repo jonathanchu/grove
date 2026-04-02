@@ -180,13 +180,22 @@ Only re-parses files whose mtime has changed."
 
 (defvar grove-mode-map
   (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-c C-l") #'grove-link-insert)
     map)
   "Keymap for `grove-mode'.")
+
+(declare-function grove-link-setup-font-lock "grove-link")
+(declare-function grove-link-remove-font-lock "grove-link")
 
 (define-minor-mode grove-mode
   "Minor mode active in org buffers that are part of a grove vault."
   :lighter " Grove"
-  :keymap grove-mode-map)
+  :keymap grove-mode-map
+  (if grove-mode
+      (progn
+        (require 'grove-link)
+        (grove-link-setup-font-lock))
+    (grove-link-remove-font-lock)))
 
 (defun grove--maybe-enable ()
   "Enable `grove-mode' if the current buffer is visiting a grove file."
@@ -199,10 +208,34 @@ Only re-parses files whose mtime has changed."
 
 ;;;; Global keymap
 
+(declare-function grove-open "grove-ui")
+(declare-function grove-close "grove-ui")
+(declare-function grove-toggle "grove-ui")
+(declare-function grove-capture "grove-capture")
+(declare-function grove-find "grove-search")
+(declare-function grove-search "grove-search")
+(declare-function grove-search-tag "grove-search")
+(declare-function grove-daily "grove-daily")
+(declare-function grove-backlinks "grove-backlink")
+(declare-function grove-inbox-review "grove-inbox")
+(declare-function grove-link-insert "grove-link")
+
 (defvar grove-command-map
   (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "v") #'grove-open)
+    (define-key map (kbd "q") #'grove-close)
+    (define-key map (kbd "n") #'grove-capture)
+    (define-key map (kbd "f") #'grove-find)
+    (define-key map (kbd "s") #'grove-search)
+    (define-key map (kbd "t") #'grove-search-tag)
+    (define-key map (kbd "d") #'grove-daily)
+    (define-key map (kbd "b") #'grove-backlinks)
+    (define-key map (kbd "i") #'grove-inbox-review)
+    (define-key map (kbd "l") #'grove-link-insert)
     map)
-  "Keymap for grove commands, bound under a prefix key.")
+  "Keymap for grove commands, bound under a prefix key.
+Bind this to a prefix key in your init file, e.g.:
+  (global-set-key (kbd \"C-c v\") grove-command-map)")
 
 (provide 'grove)
 ;;; grove.el ends here
