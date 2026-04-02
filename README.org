@@ -15,6 +15,7 @@ An Obsidian-like note-taking mode for Emacs. One keybinding opens a full workspa
 - *Search* — full-text ripgrep search with optional Consult integration
 - *Tag search* — find notes by =#hashtag= or org =:tag:= syntax
 - *Inbox review* — triage untagged notes
+- *Graph view* — visualize note connections via Graphviz
 
 No database. No external Emacs dependencies. Just org files, a directory, and ripgrep.
 
@@ -25,6 +26,7 @@ No database. No external Emacs dependencies. Just org files, a directory, and ri
 
 Optional:
 - [[https://github.com/minad/consult][Consult]] for live search with preview
+- [[https://graphviz.org][Graphviz]] (=dot=) for graph view
 
 * Installation
 
@@ -60,6 +62,7 @@ Set your vault directory and press =C-c v v= to open the workspace.
 | =C-c v t= | =grove-search-tag=   | Search by tag               |
 | =C-c v i= | =grove-inbox-review= | Triage untagged notes       |
 | =C-c v l= | =grove-link-insert=  | Insert a wikilink           |
+| =C-c v g= | =grove-graph=        | Show vault graph            |
 
 ** Tree sidebar
 
@@ -81,6 +84,10 @@ Set your vault directory and press =C-c v v= to open the workspace.
 
 Notes are saved to the inbox subdirectory of your vault.
 
+** Graph
+
+=C-c v g= renders a graph of all notes and their =[[wikilinks]]= using Graphviz. Requires =dot= on your PATH.
+
 * Configuration
 
 #+begin_src emacs-lisp
@@ -96,6 +103,9 @@ Notes are saved to the inbox subdirectory of your vault.
 
 ;; Optional: tree sidebar width (default shown)
 (setq grove-tree-width 30)
+
+;; Optional: graph view settings (defaults shown)
+(setq grove-graph-layout "neato")  ; or "dot", "fdp", "sfdp"
 #+end_src
 
 * License
