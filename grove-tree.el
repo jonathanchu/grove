@@ -243,6 +243,8 @@ Directories come first, then files.  Hidden files are excluded."
     (define-key map (kbd "q") #'grove-tree-close)
     (define-key map (kbd "n") #'grove-tree-next)
     (define-key map (kbd "p") #'grove-tree-previous)
+    (define-key map (kbd "C-n") #'grove-tree-next)
+    (define-key map (kbd "C-p") #'grove-tree-previous)
     map)
   "Keymap for `grove-tree-mode'.")
 
