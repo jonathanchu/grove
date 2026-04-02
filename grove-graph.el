@@ -61,6 +61,21 @@ Common options: \"dot\" (hierarchical), \"neato\" (force-directed),
   :type 'string
   :group 'grove)
 
+(defcustom grove-graph-display 'auto
+  "How to display the graph buffer.
+`auto' uses a right side window when the frame is wide enough,
+otherwise opens a full buffer.  `side' always uses a right side
+window.  `buffer' always opens a full buffer."
+  :type '(choice (const :tag "Auto (side if wide enough)" auto)
+                 (const :tag "Right side window" side)
+                 (const :tag "Full buffer" buffer))
+  :group 'grove)
+
+(defcustom grove-graph-min-width 160
+  "Minimum frame width (in columns) for auto side window display."
+  :type 'integer
+  :group 'grove)
+
 ;;;; Build adjacency list
 
 (defun grove-graph--adjacency-list ()
@@ -168,10 +183,29 @@ Returns an alist of (SOURCE-TITLE . (TARGET-TITLE ...))."
         (erase-buffer)
         (insert svg)
         (image-mode)))
-    (switch-to-buffer buf)
+    (grove-graph--display buf)
     (message "Graph: %d notes, %d links"
              (length adjacency)
              (cl-reduce #'+ (mapcar (lambda (e) (length (cdr e))) adjacency)))))
+
+(defun grove-graph--use-side-window-p ()
+  "Return non-nil if the graph should display in a side window."
+  (pcase grove-graph-display
+    ('side t)
+    ('buffer nil)
+    ('auto (>= (frame-width) grove-graph-min-width))))
+
+(defun grove-graph--display (buf)
+  "Display graph buffer BUF according to `grove-graph-display'."
+  (if (grove-graph--use-side-window-p)
+      (display-buffer-in-side-window
+       buf
+       '((side . right)
+         (slot . 0)
+         (window-width . 0.4)
+         (window-parameters
+          . ((no-delete-other-windows . t)))))
+    (switch-to-buffer buf)))
 
 (provide 'grove-graph)
 ;;; grove-graph.el ends here
