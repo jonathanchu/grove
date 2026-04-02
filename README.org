@@ -88,6 +88,8 @@ Notes are saved to the inbox subdirectory of your vault.
 
 =C-c v g= renders a graph of all notes and their =[[wikilinks]]= using Graphviz. Requires =dot= on your PATH.
 
+The graph display adapts to your frame width — on wide frames (160+ columns) it opens as a right side panel, otherwise it uses a full buffer. You can override this with =grove-graph-display=: ='side=, ='buffer=, or ='auto= (default).
+
 * Configuration
 
 #+begin_src emacs-lisp
@@ -105,7 +107,9 @@ Notes are saved to the inbox subdirectory of your vault.
 (setq grove-tree-width 30)
 
 ;; Optional: graph view settings (defaults shown)
-(setq grove-graph-layout "neato")  ; or "dot", "fdp", "sfdp"
+(setq grove-graph-layout "neato")    ; or "dot", "fdp", "sfdp"
+(setq grove-graph-display 'auto)     ; or 'side, 'buffer
+(setq grove-graph-min-width 160)     ; frame width threshold for auto
 #+end_src
 
 * License
