@@ -102,6 +102,16 @@ Requires a Nerd Font to be installed and active."
     (propertize (apply #'concat (make-list depth "│ "))
                 'face 'grove-tree-guide)))
 
+(defun grove-tree--item-count (directory)
+  "Return the number of visible items (org files and subdirs) in DIRECTORY."
+  (let ((count 0))
+    (dolist (file (directory-files directory nil))
+      (unless (string-prefix-p "." file)
+        (when (or (file-directory-p (expand-file-name file directory))
+                  (string-suffix-p ".org" file))
+          (cl-incf count))))
+    count))
+
 (defun grove-tree--icon (dir-p expanded)
   "Return an icon string for a tree node.
 DIR-P is non-nil for directories, EXPANDED is non-nil if expanded."
@@ -129,7 +139,9 @@ DIR-P is non-nil for directories, EXPANDED is non-nil if expanded."
     (let ((current-p (and (not dir-p)
                           grove-tree--current-file
                           (string= (grove-tree-node-path node)
-                                   grove-tree--current-file))))
+                                   grove-tree--current-file)))
+          (count (when dir-p
+                   (grove-tree--item-count (grove-tree-node-path node)))))
       (insert indent
               (propertize marker 'face 'grove-tree-marker)
               (propertize icon 'face (if dir-p
@@ -138,7 +150,10 @@ DIR-P is non-nil for directories, EXPANDED is non-nil if expanded."
               (propertize name 'face (cond
                                       (current-p 'grove-tree-current)
                                       (dir-p 'grove-tree-directory)
-                                      (t 'grove-tree-file)))))))
+                                      (t 'grove-tree-file)))
+              (if count
+                  (propertize (format " (%d)" count) 'face 'grove-tree-guide)
+                "")))))
 
 (defun grove-tree--list-entries (directory depth)
   "Return a sorted list of `grove-tree-node' structs for DIRECTORY at DEPTH.
