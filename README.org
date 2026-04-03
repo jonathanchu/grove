@@ -7,7 +7,7 @@ An Obsidian-like note-taking mode for Emacs. One keybinding opens a full workspa
 
 * Features
 
-- *File tree sidebar* with expand/collapse, line highlighting, and note preview on navigation
+- *File tree sidebar* with expand/collapse, indent guides, current file tracking, item counts, optional nerd font icons, and note preview on navigation
 - *Quick capture* — just type, first line becomes the title, saved to your inbox
 - *Wikilinks* — =[[note title]]= syntax with font-lock, click to follow, create on missing
 - *Backlinks* — ripgrep-powered, computed on demand, displayed in a side panel
@@ -90,6 +90,8 @@ Notes are saved to the inbox subdirectory of your vault.
 =C-c v g= renders a graph of all notes and their =[[wikilinks]]= using Graphviz. Requires =dot= on your PATH.
 
 The graph display adapts to your frame width — on wide frames (160+ columns) it opens as a right side panel, otherwise it uses a full buffer. You can override this with =grove-graph-display=: ='side=, ='buffer=, or ='auto= (default).
+
+Use =+= / =-= to zoom in/out and =0= to fit to window.
 
 * Configuration
 
