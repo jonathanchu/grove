@@ -60,6 +60,11 @@
   "Face for indent guide lines in the tree sidebar."
   :group 'grove)
 
+(defface grove-tree-current
+  '((t :inherit font-lock-constant-face :weight bold))
+  "Face for the currently open file in the tree sidebar."
+  :group 'grove)
+
 ;;;; Data model
 
 (cl-defstruct grove-tree-node
@@ -77,6 +82,9 @@
 
 (defvar-local grove-tree--expanded (make-hash-table :test #'equal)
   "Set of expanded directory paths in the tree.")
+
+(defvar-local grove-tree--current-file nil
+  "Path of the file currently open in the main window.")
 
 (defconst grove-tree-buffer-name "*grove-tree*"
   "Name of the tree sidebar buffer.")
@@ -100,11 +108,16 @@
                   ((not dir-p) "  ")
                   (expanded "▾ ")
                   (t "▸ "))))
-    (insert indent
-            (propertize marker 'face 'grove-tree-marker)
-            (propertize name 'face (if dir-p
-                                       'grove-tree-directory
-                                     'grove-tree-file)))))
+    (let ((current-p (and (not dir-p)
+                          grove-tree--current-file
+                          (string= (grove-tree-node-path node)
+                                   grove-tree--current-file))))
+      (insert indent
+              (propertize marker 'face 'grove-tree-marker)
+              (propertize name 'face (cond
+                                      (current-p 'grove-tree-current)
+                                      (dir-p 'grove-tree-directory)
+                                      (t 'grove-tree-file)))))))
 
 (defun grove-tree--list-entries (directory depth)
   "Return a sorted list of `grove-tree-node' structs for DIRECTORY at DEPTH.
@@ -205,6 +218,7 @@ Directories come first, then files.  Hidden files are excluded."
         (if (grove-tree-node-directory-p node)
             (grove-tree--toggle-expand)
           (let ((path (grove-tree-node-path node)))
+            (grove-tree--set-current-file path)
             (select-window
              (or (grove-tree--main-window)
                  (next-window)))
@@ -257,6 +271,22 @@ Directories come first, then files.  Hidden files are excluded."
           (dolist (node (grove-tree--list-entries grove-directory 0))
             (ewoc-enter-last grove-tree--ewoc node)))))))
 
+;;;; Current file tracking
+
+(defun grove-tree--set-current-file (file)
+  "Set FILE as the current file and refresh the tree display."
+  (let ((buf (get-buffer grove-tree-buffer-name)))
+    (when (and buf (buffer-live-p buf))
+      (with-current-buffer buf
+        (unless (equal file grove-tree--current-file)
+          (setq grove-tree--current-file file)
+          (when grove-tree--ewoc
+            (let ((inhibit-read-only t)
+                  (pos (point)))
+              (ewoc-refresh grove-tree--ewoc)
+              (goto-char pos)
+              (hl-line-highlight))))))))
+
 ;;;; Mode
 
 (defvar grove-tree-mode-map
@@ -289,7 +319,11 @@ Directories come first, then files.  Hidden files are excluded."
   (let ((buf (get-buffer-create grove-tree-buffer-name)))
     (with-current-buffer buf
       (grove-tree-mode)
-      (grove-tree-refresh))
+      (grove-tree-refresh)
+      (let ((main-win (grove-tree--main-window)))
+        (when main-win
+          (grove-tree--set-current-file
+           (buffer-file-name (window-buffer main-win))))))
     (let ((win (display-buffer-in-side-window
                 buf
                 `((side . left)
