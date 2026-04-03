@@ -70,6 +70,9 @@
 (defvar-local grove-tree--ewoc nil
   "The ewoc instance for the current tree buffer.")
 
+(defvar-local grove-tree--expanded (make-hash-table :test #'equal)
+  "Set of expanded directory paths in the tree.")
+
 (defconst grove-tree-buffer-name "*grove-tree*"
   "Name of the tree sidebar buffer.")
 
@@ -78,7 +81,8 @@
   (let* ((depth (grove-tree-node-depth node))
          (indent (make-string (* depth 2) ?\s))
          (dir-p (grove-tree-node-directory-p node))
-         (expanded (grove-tree-node-expanded-p node))
+         (expanded (and dir-p (gethash (grove-tree-node-path node)
+                                       grove-tree--expanded)))
          (name (grove-tree-node-name node))
          (marker (cond
                   ((not dir-p) "  ")
@@ -127,21 +131,29 @@ Directories come first, then files.  Hidden files are excluded."
   (and grove-tree--ewoc
        (ewoc-locate grove-tree--ewoc)))
 
+(defun grove-tree--has-children-p (ewoc-node node)
+  "Return non-nil if EWOC-NODE has visible children in the ewoc."
+  (let ((next (ewoc-next grove-tree--ewoc ewoc-node)))
+    (and next
+         (> (grove-tree-node-depth (ewoc-data next))
+            (grove-tree-node-depth node)))))
+
 (defun grove-tree--toggle-expand ()
   "Toggle expand/collapse for the directory node at point."
   (interactive)
-  (let ((ewoc-node (grove-tree--node-at-point)))
+  (let ((inhibit-read-only t)
+        (ewoc-node (grove-tree--node-at-point)))
     (when ewoc-node
       (let ((node (ewoc-data ewoc-node)))
         (when (grove-tree-node-directory-p node)
-          (if (grove-tree-node-expanded-p node)
+          (if (grove-tree--has-children-p ewoc-node node)
               (grove-tree--collapse ewoc-node node)
             (grove-tree--expand ewoc-node node))
           (ewoc-invalidate grove-tree--ewoc ewoc-node))))))
 
 (defun grove-tree--expand (ewoc-node node)
   "Expand NODE by inserting its children after EWOC-NODE."
-  (setf (grove-tree-node-expanded-p node) t)
+  (puthash (grove-tree-node-path node) t grove-tree--expanded)
   (let ((children (grove-tree--list-entries
                    (grove-tree-node-path node)
                    (1+ (grove-tree-node-depth node))))
@@ -151,14 +163,14 @@ Directories come first, then files.  Hidden files are excluded."
 
 (defun grove-tree--collapse (ewoc-node node)
   "Collapse NODE by removing all its descendants after EWOC-NODE."
-  (setf (grove-tree-node-expanded-p node) nil)
   (let ((next (ewoc-next grove-tree--ewoc ewoc-node))
         (target-depth (grove-tree-node-depth node)))
     (while (and next
                 (> (grove-tree-node-depth (ewoc-data next)) target-depth))
       (let ((to-delete next))
         (setq next (ewoc-next grove-tree--ewoc next))
-        (ewoc-delete grove-tree--ewoc to-delete)))))
+        (ewoc-delete grove-tree--ewoc to-delete))))
+  (remhash (grove-tree-node-path node) grove-tree--expanded))
 
 (defun grove-tree--preview ()
   "Preview the file at point in the main window without switching focus."
