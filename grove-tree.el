@@ -38,6 +38,12 @@
   :type 'integer
   :group 'grove)
 
+(defcustom grove-tree-icons nil
+  "Whether to show nerd font icons in the tree sidebar.
+Requires a Nerd Font to be installed and active."
+  :type 'boolean
+  :group 'grove)
+
 ;;;; Faces
 
 (defface grove-tree-directory
@@ -96,6 +102,17 @@
     (propertize (apply #'concat (make-list depth "│ "))
                 'face 'grove-tree-guide)))
 
+(defun grove-tree--icon (dir-p expanded)
+  "Return an icon string for a tree node.
+DIR-P is non-nil for directories, EXPANDED is non-nil if expanded."
+  (if (not grove-tree-icons)
+      ""
+    (concat (cond
+             ((not dir-p) "\xe612 ")         ; nf-seti-text (file)
+             (expanded    "\xf115 ")         ; nf-fa-folder_open
+             (t           "\xf114 "))        ; nf-fa-folder
+            )))
+
 (defun grove-tree--print (node)
   "Print NODE as a line in the ewoc buffer."
   (let* ((depth (grove-tree-node-depth node))
@@ -104,6 +121,7 @@
          (expanded (and dir-p (gethash (grove-tree-node-path node)
                                        grove-tree--expanded)))
          (name (grove-tree-node-name node))
+         (icon (grove-tree--icon dir-p expanded))
          (marker (cond
                   ((not dir-p) "  ")
                   (expanded "▾ ")
@@ -114,6 +132,9 @@
                                    grove-tree--current-file))))
       (insert indent
               (propertize marker 'face 'grove-tree-marker)
+              (propertize icon 'face (if dir-p
+                                         'grove-tree-directory
+                                       'grove-tree-file))
               (propertize name 'face (cond
                                       (current-p 'grove-tree-current)
                                       (dir-p 'grove-tree-directory)
