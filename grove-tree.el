@@ -55,6 +55,11 @@
   "Face for expand/collapse markers in the tree sidebar."
   :group 'grove)
 
+(defface grove-tree-guide
+  '((t :inherit font-lock-comment-face))
+  "Face for indent guide lines in the tree sidebar."
+  :group 'grove)
+
 ;;;; Data model
 
 (cl-defstruct grove-tree-node
@@ -76,10 +81,17 @@
 (defconst grove-tree-buffer-name "*grove-tree*"
   "Name of the tree sidebar buffer.")
 
+(defun grove-tree--indent-string (depth)
+  "Return an indent guide string for DEPTH levels of nesting."
+  (if (zerop depth)
+      ""
+    (propertize (apply #'concat (make-list depth "│ "))
+                'face 'grove-tree-guide)))
+
 (defun grove-tree--print (node)
   "Print NODE as a line in the ewoc buffer."
   (let* ((depth (grove-tree-node-depth node))
-         (indent (make-string (* depth 2) ?\s))
+         (indent (grove-tree--indent-string depth))
          (dir-p (grove-tree-node-directory-p node))
          (expanded (and dir-p (gethash (grove-tree-node-path node)
                                        grove-tree--expanded)))
