@@ -1,6 +1,8 @@
 #+title: grove.el
 #+author: Jonathan Chu
 
+[[file:grove-logo.png]]
+
 An Obsidian-like note-taking mode for Emacs. One keybinding opens a full workspace with a file tree sidebar and your org notes.
 
 [[file:https://img.shields.io/badge/license-GPL--3.0-blue.svg]]
