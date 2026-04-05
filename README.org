@@ -1,7 +1,7 @@
 #+title: grove.el
 #+author: Jonathan Chu
 
-[[file:grove-logo.png]]
+#+html: <p align="center"><img src="grove-logo.png" /></p>
 
 An Obsidian-like note-taking mode for Emacs. One keybinding opens a full workspace with a file tree sidebar and your org notes.
 
