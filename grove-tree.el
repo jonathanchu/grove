@@ -194,7 +194,7 @@ Directories come first, then files.  Hidden files are excluded."
        (ewoc-locate grove-tree--ewoc)))
 
 (defun grove-tree--has-children-p (ewoc-node node)
-  "Return non-nil if EWOC-NODE has visible children in the ewoc."
+  "Return non-nil if EWOC-NODE (wrapping NODE) has visible children in the ewoc."
   (let ((next (ewoc-next grove-tree--ewoc ewoc-node)))
     (and next
          (> (grove-tree-node-depth (ewoc-data next))
