@@ -6,14 +6,22 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        emacs_version: ['29.1', '30.1']
     steps:
     - uses: actions/checkout@v6
+    - name: Set up Emacs
+      uses: purcell/setup-emacs@master
+      with:
+        version: ${{ matrix.emacs_version }}
     - name: Set up Python
       uses: actions/setup-python@v6
       with: { python-version: '3.10' }
     - name: Install
       run: |
-        sudo apt-get install emacs && emacs --version
+        emacs --version
         git clone https://github.com/riscy/melpazoid.git ~/melpazoid
     - name: Run
       env:
