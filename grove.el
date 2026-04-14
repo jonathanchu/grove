@@ -197,14 +197,18 @@ Only re-parses files whose mtime has changed."
         (grove-link-setup-font-lock))
     (grove-link-remove-font-lock)))
 
-(defun grove--maybe-enable ()
-  "Enable `grove-mode' if the current buffer is visiting a grove file."
+(defun grove--turn-on ()
+  "Turn on `grove-mode' if the current buffer is visiting a grove file."
   (when (and (derived-mode-p 'org-mode)
              (buffer-file-name)
              (grove-file-p (buffer-file-name)))
     (grove-mode 1)))
 
-(add-hook 'find-file-hook #'grove--maybe-enable)
+;;;###autoload
+(define-globalized-minor-mode global-grove-mode
+  grove-mode
+  grove--turn-on
+  :group 'grove)
 
 ;;;; Global keymap
 
