@@ -44,8 +44,12 @@ Clone the repository and add it to your load path:
   :load-path "~/path/to/grove"
   :bind-keymap ("C-c v" . grove-command-map)
   :custom
-  (grove-directory "~/notes/"))
+  (grove-directory "~/notes/")
+  :config
+  (global-grove-mode 1))
 #+end_src
+
+=global-grove-mode= activates =grove-mode= in any org buffer that lives inside =grove-directory=, which enables wikilink font-locking and the =C-c C-l= keybinding for inserting links. Omit it if you'd rather enable =grove-mode= manually per buffer.
 
 ** MELPA
 
