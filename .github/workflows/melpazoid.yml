@@ -19,6 +19,6 @@ jobs:
       env:
         LOCAL_REPO: ${{ github.workspace }}
         RECIPE: (grove :fetcher github :repo "jonathanchu/grove")
-        WARN_IS_ERROR: false
+        WARN_IS_ERROR: true
         EXIST_OK: false
       run: echo $GITHUB_REF && make -C ~/melpazoid
