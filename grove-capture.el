@@ -28,7 +28,7 @@
 
 ;;; Code:
 
-(require 'grove)
+(require 'grove-core)
 
 (defvar grove-capture-mode-map
   (let ((map (make-sparse-keymap)))

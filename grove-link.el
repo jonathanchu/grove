@@ -28,7 +28,7 @@
 
 ;;; Code:
 
-(require 'grove)
+(require 'grove-core)
 
 ;;;; Faces
 
