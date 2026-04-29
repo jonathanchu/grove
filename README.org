@@ -59,30 +59,30 @@ Coming soon.
 
 Set your vault directory and press =C-c v v= to open the workspace.
 
-| Key       | Command              | Description                 |
-|-----------+----------------------+-----------------------------|
-| =C-c v v= | =grove-open=         | Open the grove workspace    |
-| =C-c v q= | =grove-close=        | Close and restore layout    |
-| =C-c v n= | =grove-capture=      | Quick capture a new note    |
-| =C-c v f= | =grove-find=         | Find note by title          |
-| =C-c v s= | =grove-search=       | Full-text ripgrep search    |
-| =C-c v d= | =grove-daily=        | Open today's daily note     |
-| =C-c v b= | =grove-backlinks=    | Show backlinks for note     |
-| =C-c v t= | =grove-search-tag=   | Search by tag               |
-| =C-c v i= | =grove-inbox-review= | Triage untagged notes       |
-| =C-c v l= | =grove-link-insert=  | Insert a wikilink           |
-| =C-c v g= | =grove-graph=        | Show vault graph            |
+| Key       | Command              | Description              |
+|-----------+----------------------+--------------------------|
+| =C-c v v= | =grove-open=         | Open the grove workspace |
+| =C-c v q= | =grove-close=        | Close and restore layout |
+| =C-c v n= | =grove-capture=      | Quick capture a new note |
+| =C-c v f= | =grove-find=         | Find note by title       |
+| =C-c v s= | =grove-search=       | Full-text ripgrep search |
+| =C-c v d= | =grove-daily=        | Open today's daily note  |
+| =C-c v b= | =grove-backlinks=    | Show backlinks for note  |
+| =C-c v t= | =grove-search-tag=   | Search by tag            |
+| =C-c v i= | =grove-inbox-review= | Triage untagged notes    |
+| =C-c v l= | =grove-link-insert=  | Insert a wikilink        |
+| =C-c v g= | =grove-graph=        | Show vault graph         |
 
 ** Tree sidebar
 
-| Key   | Action                     |
-|-------+----------------------------|
-| =RET= | Open file / toggle dir     |
-| =TAB= | Toggle directory expand    |
-| =n= / =C-n= | Next entry (with preview)  |
+| Key         | Action                        |
+|-------------+-------------------------------|
+| =RET=       | Open file / toggle dir        |
+| =TAB=       | Toggle directory expand       |
+| =n= / =C-n= | Next entry (with preview)     |
 | =p= / =C-p= | Previous entry (with preview) |
-| =g=   | Refresh tree               |
-| =q=   | Close sidebar              |
+| =g=         | Refresh tree                  |
+| =q=         | Close sidebar                 |
 
 ** Capture
 
