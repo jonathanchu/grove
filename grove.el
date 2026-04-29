@@ -46,6 +46,14 @@
 ;;; Code:
 
 (require 'grove-core)
+(require 'grove-ui)
+(require 'grove-capture)
+(require 'grove-search)
+(require 'grove-daily)
+(require 'grove-backlink)
+(require 'grove-inbox)
+(require 'grove-link)
+(require 'grove-graph)
 
 ;;;; Minor mode
 
@@ -55,17 +63,12 @@
     map)
   "Keymap for `grove-mode'.")
 
-(declare-function grove-link-setup-font-lock "grove-link")
-(declare-function grove-link-remove-font-lock "grove-link")
-
 (define-minor-mode grove-mode
   "Minor mode active in org buffers that are part of a grove vault."
   :lighter " Grove"
   :keymap grove-mode-map
   (if grove-mode
-      (progn
-        (require 'grove-link)
-        (grove-link-setup-font-lock))
+      (grove-link-setup-font-lock)
     (grove-link-remove-font-lock)))
 
 (defun grove--turn-on ()
@@ -102,14 +105,4 @@ Bind this to a prefix key in your init file, e.g.:
   (global-set-key (kbd \"C-c v\") grove-command-map)")
 
 (provide 'grove)
-
-(require 'grove-ui)
-(require 'grove-capture)
-(require 'grove-search)
-(require 'grove-daily)
-(require 'grove-backlink)
-(require 'grove-inbox)
-(require 'grove-link)
-(require 'grove-graph)
-
 ;;; grove.el ends here
