@@ -42,15 +42,6 @@
   :lighter " Grove-Capture"
   :keymap grove-capture-mode-map)
 
-(defun grove-capture--sanitize-filename (title)
-  "Convert TITLE into a safe filename.
-Downcases, replaces spaces with hyphens, strips non-alphanumeric characters."
-  (let ((name (downcase (string-trim title))))
-    (setq name (replace-regexp-in-string "[^a-z0-9 -]" "" name))
-    (setq name (replace-regexp-in-string "\\s-+" "-" name))
-    (setq name (replace-regexp-in-string "^-+\\|-+$" "" name))
-    (if (string-empty-p name) "untitled" name)))
-
 (defun grove-capture--unique-path (directory filename)
   "Return a unique file path in DIRECTORY for FILENAME.
 Appends a numeric suffix if the file already exists."
@@ -96,7 +87,7 @@ Type freely, then press \\[grove-capture-finalize] to save or
       (let* ((lines (split-string content "\n"))
              (title (string-trim (car lines)))
              (body (string-join (cdr lines) "\n"))
-             (filename (concat (grove-capture--sanitize-filename title) ".org"))
+             (filename (concat (grove--sanitize-filename title) ".org"))
              (path (grove-capture--unique-path (grove--inbox-path) filename)))
         (with-temp-file path
           (insert "#+title: " title "\n")

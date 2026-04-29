@@ -154,6 +154,15 @@ Only re-parses files whose mtime has changed."
              grove--cache)
     (sort result (lambda (a b) (string< (car a) (car b))))))
 
+(defun grove--sanitize-filename (title)
+  "Convert TITLE into a safe filename.
+Downcases, replaces spaces with hyphens, strips non-alphanumeric characters."
+  (let ((name (downcase (string-trim title))))
+    (setq name (replace-regexp-in-string "[^a-z0-9 -]" "" name))
+    (setq name (replace-regexp-in-string "\\s-+" "-" name))
+    (setq name (replace-regexp-in-string "^-+\\|-+$" "" name))
+    (if (string-empty-p name) "untitled" name)))
+
 (defun grove-file-p (file)
   "Return non-nil if FILE is inside `grove-directory'."
   (and grove-directory
