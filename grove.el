@@ -84,6 +84,24 @@
   grove--turn-on
   :group 'grove)
 
+;;;; Profile switching
+
+;;;###autoload
+(defun grove-switch-profile (name)
+  "Switch the active grove profile to NAME.
+NAME must be a key in `grove-profiles'."
+  (interactive
+   (list (completing-read "Grove profile: "
+                          (mapcar (lambda (p) (symbol-name (car p)))
+                                  grove-profiles)
+                          nil t)))
+  (setq grove--active-profile (intern name))
+  (when (get-buffer grove-tree-buffer-name)
+    (grove-tree-refresh))
+  (message "Grove profile: %s (%s)"
+           name
+           (abbreviate-file-name (grove--active-directory))))
+
 ;;;; Global keymap
 
 (defvar grove-command-map
@@ -99,6 +117,7 @@
     (define-key map (kbd "i") #'grove-inbox-review)
     (define-key map (kbd "l") #'grove-link-insert)
     (define-key map (kbd "g") #'grove-graph)
+    (define-key map (kbd "p") #'grove-switch-profile)
     map)
   "Keymap for grove commands, bound under a prefix key.
 Bind this to a prefix key in your init file, e.g.:
