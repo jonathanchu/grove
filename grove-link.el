@@ -118,18 +118,37 @@ prompt the user to choose."
     (unless target (user-error "No grove link at point"))
     (grove-link-follow target)))
 
+(defun grove-link--profile-with-title (title)
+  "Return the profile name that has a cached note matching TITLE, or nil.
+Only searches profiles other than the currently active one."
+  (catch 'found
+    (maphash
+     (lambda (profile-name cache)
+       (unless (eq profile-name grove--active-profile)
+         (maphash
+          (lambda (_file meta)
+            (when (string-equal-ignore-case (plist-get meta :title) title)
+              (throw 'found profile-name)))
+          cache)))
+     grove--profile-caches)))
+
 (defun grove-link-follow (title)
   "Follow a grove wikilink to TITLE.
 If the note doesn't exist, offer to create it."
   (let ((path (grove-link--resolve title)))
     (if path
         (find-file path)
-      (if (y-or-n-p (format "Note \"%s\" not found.  Create it? " title))
+      (let ((other-profile (grove-link--profile-with-title title)))
+        (cond
+         (other-profile
+          (message "Note \"%s\" is in profile [%s] — switch profiles to follow"
+                   title other-profile))
+         ((y-or-n-p (format "Note \"%s\" not found.  Create it? " title))
           (let* ((filename (concat (grove--sanitize-filename title) ".org"))
-                 (path (grove--unique-path grove-directory filename)))
+                 (path (grove--unique-path grove--active-directory filename)))
             (find-file path)
-            (insert "#+title: " title "\n\n"))
-        (message "Link not followed")))))
+            (insert "#+title: " title "\n\n")))
+         (t (message "Link not followed")))))))
 
 ;;;; Insert
 
