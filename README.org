@@ -151,6 +151,12 @@ Use =+= / =-= to zoom in/out and =0= to fit to window.
 ;; Required: set your vault directory
 (setq grove-directory "~/notes/")
 
+;; Optional: set profiles for separation of note vaults
+(setq grove-profiles
+ '((personal :directory "~/remoteFolder/personal")
+   (work     :directory "~/localFolder/work"))
+   (other    :directory "~/otherNotes")))
+
 ;; Optional: customize subdirectories (defaults shown)
 (setq grove-inbox-directory "inbox")
 (setq grove-daily-directory "daily")

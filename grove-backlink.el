@@ -58,7 +58,7 @@ Each result is a plist (:file :line :context) found via ripgrep."
                 grove-backlink-ripgrep-executable))
   (let* ((pattern (format "\\[\\[%s\\]\\]" (regexp-quote title)))
          (args (list "--no-heading" "--line-number" "--context" "1"
-                     "--glob=*.org" pattern grove--active-directory))
+                     "--glob=*.org" pattern (grove--active-directory)))
          results current-file)
     (with-temp-buffer
       (let ((exit-code (apply #'process-file grove-backlink-ripgrep-executable

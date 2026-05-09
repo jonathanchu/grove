@@ -314,7 +314,7 @@ Directories come first, then files.  Hidden files are excluded."
                  'face 'bold))
           (setq grove-tree--ewoc
                 (ewoc-create #'grove-tree--print "" ""))
-          (grove-tree--populate grove--active-directory 0 nil))))))
+          (grove-tree--populate (grove--active-directory) 0 nil))))))
 
 (defun grove-tree--populate (directory depth parent-node)
   "Insert DIRECTORY entries at DEPTH after PARENT-NODE.
