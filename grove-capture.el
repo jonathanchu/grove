@@ -53,7 +53,7 @@ Type freely, then press \\[grove-capture-finalize] to save or
   (grove--ensure-directory)
   (let ((buf (get-buffer-create "*grove-capture*")))
     (switch-to-buffer buf)
-    (org-mode)
+    (set-auto-mode t)
     (grove-capture-mode 1)
     (let ((inhibit-read-only t))
       (erase-buffer))
@@ -73,7 +73,7 @@ Type freely, then press \\[grove-capture-finalize] to save or
       (let* ((lines (split-string content "\n"))
              (title (string-trim (car lines)))
              (body (string-join (cdr lines) "\n"))
-             (filename (concat (grove--sanitize-filename title) ".org"))
+             (filename (concat (grove--sanitize-filename title) "." grove-default-extension))
              (path (grove--unique-path (grove--inbox-path) filename)))
         (with-temp-file path
           (insert "#+title: " title "\n")

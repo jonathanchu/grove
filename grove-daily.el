@@ -37,7 +37,7 @@ it is created with a title template."
   (interactive)
   (grove--ensure-directory)
   (let* ((time (or time (current-time)))
-         (filename (concat (format-time-string grove-daily-format time) ".org"))
+         (filename (concat (format-time-string grove-daily-format time) "." grove-default-extension))
          (path (expand-file-name filename (grove--daily-path)))
          (new-p (not (file-exists-p path))))
     (find-file path)

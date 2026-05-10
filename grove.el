@@ -72,9 +72,8 @@
     (grove-link-remove-font-lock)))
 
 (defun grove--turn-on ()
-  "Turn on `grove-mode' if the current buffer is visiting a grove file."
-  (when (and (derived-mode-p 'org-mode)
-             (buffer-file-name)
+  "Turn on `grove-mode' if the current buffer is visiting a grove file. Major mode chosen by auto-mode-alist"
+  (when (and (buffer-file-name)
              (grove-file-p (buffer-file-name)))
     (grove-mode 1)))
 

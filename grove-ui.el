@@ -67,7 +67,7 @@ and displays a note in the main area."
 Tries the daily note, then the first note in the vault, otherwise
 shows a welcome message."
   (let ((daily (expand-file-name
-                (concat (format-time-string grove-daily-format) ".org")
+                (concat (format-time-string grove-daily-format) "." grove-default-extension)
                 (grove--daily-path))))
     (cond
      ;; If today's daily note exists, open it

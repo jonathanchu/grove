@@ -55,8 +55,10 @@ Each result is a plist (:file :line :context) found via ripgrep."
     (user-error "Ripgrep not found. Install `%s` and ensure it is on your PATH"
                 grove-backlink-ripgrep-executable))
   (let* ((pattern (format "\\[\\[%s\\]\\]" (regexp-quote title)))
-         (args (list "--no-heading" "--line-number" "--context" "1"
-                     "--glob=*.org" pattern grove-directory))
+         (globs (mapcar (lambda (ext) (format "--glob=*.%s" ext)) grove-file-extensions))
+         (args (append (list "--no-heading" "--line-number" "--context" "1")
+                       globs (list pattern grove-directory)))
+         (ext-re (mapconcat #'regexp-quote grove-file-extensions "\\|"))
          results current-file)
     (with-temp-buffer
       (let ((exit-code (apply #'process-file grove-backlink-ripgrep-executable
@@ -71,7 +73,7 @@ Each result is a plist (:file :line :context) found via ripgrep."
          ;; Context separator
          ((string-match-p "^--$" line))
          ;; Match line: file:line:content
-         ((string-match "^\\(.+\\.org\\):\\([0-9]+\\):\\(.*\\)$" line)
+         ((string-match (format "^\\(.+\\.\\(?:%s\\)\\):\\([0-9]+\\):\\(.*\\)$" ext-re) line)
           (let ((file (match-string 1 line))
                 (lnum (string-to-number (match-string 2 line)))
                 (context (string-trim (match-string 3 line))))
@@ -81,7 +83,7 @@ Each result is a plist (:file :line :context) found via ripgrep."
               (push (list :file file :line lnum :context context)
                     results))))
          ;; Context line: file-line-content
-         ((string-match "^\\(.+\\.org\\)-\\([0-9]+\\)-\\(.*\\)$" line)))))
+         ((string-match (format "^\\(.+\\.\\(?:%s\\)\\):\\([0-9]+\\):\\(.*\\)$" ext-re) line)))))
     (setq current-file (buffer-file-name))
     ;; Filter out self-references
     (cl-remove-if
@@ -125,7 +127,7 @@ Each result is a plist (:file :line :context) found via ripgrep."
      (lambda (win)
        (unless (window-parameter win 'window-side)
          (unless (string= (buffer-name (window-buffer win))
-                           grove-backlink-buffer-name)
+                          grove-backlink-buffer-name)
            (throw 'found win)))))))
 
 (defun grove-backlink--render (title results)

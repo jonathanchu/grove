@@ -49,17 +49,24 @@ available, otherwise falls back to `grep'."
       (grove-search--consult-ripgrep initial)
     (grove-search--grep initial)))
 
+(defun grove-search--glob-args (quote-p)
+  (mapconcat (lambda (ext)
+               (if quote-p (format "--glob='*.%s'" ext)
+                 (format "--glob=*.%s" ext)))
+             grove-file-extensions " "))
+
 (defun grove-search--consult-ripgrep (&optional initial)
   "Search vault with consult-ripgrep.  INITIAL is the initial input."
   (let ((consult-ripgrep-args
-         (concat consult-ripgrep-args " --glob=*.org")))
+         (concat consult-ripgrep-args " " (grove-search--glob-args nil))))
     (consult--grep "Grove search" #'consult--grep-make-builder
                    grove-directory initial)))
 
 (defun grove-search--grep (&optional initial)
   "Search vault with grep.  INITIAL is the initial input."
   (let ((pattern (read-string "Grove search: " initial)))
-    (grep (format "rg --no-heading --line-number --glob='*.org' %s %s"
+    (grep (format "rg --no-heading --line-number %s %s %s"
+                  (grove-search--glob-args t)
                   (shell-quote-argument pattern)
                   (shell-quote-argument grove-directory)))))
 

@@ -61,6 +61,25 @@ Passed to `format-time-string'."
   :type 'string
   :group 'grove)
 
+(defcustom grove-file-extensions '("org" "md")
+  "List of allowed file extensions for grove notes."
+  :type '(repeat string)
+  :group 'grove)
+
+(defcustom grove-default-extension "org"
+  "Default file extension for new notes."
+  :type 'string
+  :group 'grove)
+
+(defun grove--file-extension-regexp ()
+  "Return a regular expression matching allowed file extensions."
+  (concat "\\.\\(" (mapconcat #'regexp-quote grove-file-extensions "\\|") "\\)\\'"))
+
+(defun grove--valid-extension-p (filename)
+  "Return non-nil if FILENAME has an allowed extension."
+  (let ((ext (file-name-extension filename)))
+    (and ext (member ext grove-file-extensions))))
+
 ;;;; Vault cache
 
 (defvar grove--cache (make-hash-table :test #'equal)
@@ -182,7 +201,7 @@ Returns (:title TITLE :tags TAGS :links LINKS :mtime MTIME)."
   "Refresh the vault cache by scanning `grove-directory'.
 Only re-parses files whose mtime has changed."
   (grove--ensure-directory)
-  (let ((files (directory-files-recursively grove-directory "\\.org\\'"))
+  (let ((files (directory-files-recursively grove-directory (grove--file-extension-regexp)))
         (seen (make-hash-table :test #'equal)))
     ;; Update or add entries
     (dolist (file files)
@@ -221,6 +240,7 @@ Downcases, replaces spaces with hyphens, strips non-alphanumeric characters."
   "Return non-nil if FILE is inside `grove-directory'."
   (and grove-directory
        file
+       (grove--valid-extension-p file)
        (string-prefix-p (expand-file-name grove-directory)
                         (expand-file-name file))))
 

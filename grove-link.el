@@ -125,7 +125,7 @@ If the note doesn't exist, offer to create it."
     (if path
         (find-file path)
       (if (y-or-n-p (format "Note \"%s\" not found.  Create it? " title))
-          (let* ((filename (concat (grove--sanitize-filename title) ".org"))
+          (let* ((filename (concat (grove--sanitize-filename title) "." grove-default-extension))
                  (path (grove--unique-path grove-directory filename)))
             (find-file path)
             (insert "#+title: " title "\n\n"))
