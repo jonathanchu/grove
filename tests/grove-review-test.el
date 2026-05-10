@@ -46,7 +46,7 @@
           (with-temp-file note
             (insert "#+title: Real note\n"))
           ;; Emacs lockfiles are symlinks whose names can still match the
-          ;; recursive .org scan; they should never be parsed as notes.
+          ;; recursive .org scan, they should never be parsed as notes.
           (make-symbolic-link note lockfile)
           (delete-file note)
           (grove--refresh-cache)
