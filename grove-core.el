@@ -268,7 +268,12 @@ Returns (:title TITLE :tags TAGS :links LINKS :mtime MTIME)."
 
 (defun grove--cacheable-note-p (file)
   "Return non-nil when FILE should be included in the note cache."
-  (not (string-prefix-p ".#" (file-name-nondirectory file))))
+  (let ((name (file-name-nondirectory file)))
+    (and (string-suffix-p ".org" name)
+         (not (string-prefix-p ".#" name))
+         (not (and (string-prefix-p "#" name)
+                   (string-suffix-p "#" name)))
+         (not (string-suffix-p "~" name)))))
 
 (defun grove--refresh-cache ()
   "Refresh the vault cache by scanning the active grove directory.

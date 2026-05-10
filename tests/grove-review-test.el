@@ -54,6 +54,28 @@
           (should (= (hash-table-count grove--cache) 0)))
       (delete-directory grove-directory t))))
 
+(ert-deftest grove-refresh-cache-ignores-emacs-autosave-and-backup-files ()
+  (let* ((grove-directory (make-temp-file "grove-vault" t))
+         (autosave (expand-file-name "#draft.org#" grove-directory))
+         (backup (expand-file-name "draft.org~" grove-directory))
+         (note (expand-file-name "draft.org" grove-directory))
+         (grove--cache (make-hash-table :test #'equal)))
+    (unwind-protect
+        (progn
+          (with-temp-file autosave
+            (insert "#+title: Autosave\n"))
+          (with-temp-file backup
+            (insert "#+title: Backup\n"))
+          (with-temp-file note
+            (insert "#+title: Real draft\n"))
+          (grove--refresh-cache)
+          (should-not (gethash autosave grove--cache))
+          (should-not (gethash backup grove--cache))
+          (should (= (hash-table-count grove--cache) 1))
+          (should (equal (plist-get (gethash note grove--cache) :title)
+                         "Real draft")))
+      (delete-directory grove-directory t))))
+
 (ert-deftest grove-link-fontify-allows-colons-in-note-titles ()
   (with-temp-buffer
     (insert "[[Project: Alpha]] [[https://example.com]]")
