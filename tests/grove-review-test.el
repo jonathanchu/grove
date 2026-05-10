@@ -36,6 +36,24 @@
                        '("Project: Alpha")))
       (delete-file file))))
 
+(ert-deftest grove-refresh-cache-ignores-emacs-lockfiles ()
+  (let* ((grove-directory (make-temp-file "grove-vault" t))
+         (note (expand-file-name "test-2.org" grove-directory))
+         (lockfile (expand-file-name ".#test-2.org" grove-directory))
+         (grove--cache (make-hash-table :test #'equal)))
+    (unwind-protect
+        (progn
+          (with-temp-file note
+            (insert "#+title: Real note\n"))
+          ;; Emacs lockfiles are symlinks whose names can still match the
+          ;; recursive .org scan; they should never be parsed as notes.
+          (make-symbolic-link note lockfile)
+          (delete-file note)
+          (grove--refresh-cache)
+          (should-not (gethash lockfile grove--cache))
+          (should (= (hash-table-count grove--cache) 0)))
+      (delete-directory grove-directory t))))
+
 (ert-deftest grove-link-fontify-allows-colons-in-note-titles ()
   (with-temp-buffer
     (insert "[[Project: Alpha]] [[https://example.com]]")
