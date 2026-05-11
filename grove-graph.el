@@ -1,4 +1,4 @@
-;;; grove-graph.el --- Graphviz-based graph view for grove -*- lexical-binding: t -*-
+;;; grove-graph.el --- Graphviz/Mermaid-based graph view for grove -*- lexical-binding: t -*-
 
 ;; Copyright 2026 Jonathan Chu
 
@@ -22,19 +22,32 @@
 
 ;;; Commentary:
 
-;; Graph view for grove using Graphviz.  Extracts wikilinks via ripgrep,
-;; generates a DOT graph, and renders it as SVG for display in Emacs.
+;; Graph view for grove using Graphviz or Mermaid.  Extracts wikilinks via ripgrep,
+;; generates a DOT or Mermaid graph, and renders it as SVG for display in Emacs.
 
 ;;; Code:
 
 (require 'grove-core)
 (require 'image)
 (require 'image-mode)
+(require 'json)
 
 ;;;; Customization
 
+(defcustom grove-graph-renderer 'dot
+  "The underlying engine used to render the graph.
+Valid options are `dot' for Graphviz or `mmdr' for mermaid-rs-renderer."
+  :type '(choice (const dot)
+                 (const mmdr))
+  :group 'grove)
+
 (defcustom grove-graph-executable "dot"
   "Path to the Graphviz dot executable."
+  :type 'string
+  :group 'grove)
+
+(defcustom grove-graph-mmdr-executable "mmdr"
+  "Path to the mmdr executable."
   :type 'string
   :group 'grove)
 
@@ -46,6 +59,11 @@ Common options: \"dot\" (hierarchical), \"neato\" (force-directed),
                  (const "neato")
                  (const "fdp")
                  (const "sfdp"))
+  :group 'grove)
+
+(defcustom grove-graph-mmdr-direction "TD"
+  "Graph direction when using the mmdr renderer (ie TD, LR, RL, BT)."
+  :type 'string
   :group 'grove)
 
 (defcustom grove-graph-node-color "#89b4fa"
@@ -106,11 +124,15 @@ Returns an alist of (SOURCE-TITLE . (TARGET-TITLE ...))."
                all-titles)
       result)))
 
-;;;; Generate DOT
+;;;; Generate Markup
 
 (defun grove-graph--dot-escape (str)
   "Escape STR for use in a DOT label."
   (replace-regexp-in-string "\"" "\\\\\"" str))
+
+(defun grove-graph--mermaid-escape (str)
+  "Escape STR for use in a Mermaid node label."
+  (replace-regexp-in-string "\"" "&quot;" str))
 
 (defun grove-graph--generate-dot (adjacency)
   "Generate a DOT graph string from ADJACENCY list."
@@ -123,7 +145,7 @@ Returns an alist of (SOURCE-TITLE . (TARGET-TITLE ...))."
         (cl-incf counter)))
     (with-temp-buffer
       (insert "graph vault {\n")
-      (insert (format "  bgcolor=\"%s\";\n" grove-graph-bg-color))
+      (insert (format "  bgcolor=\"transparent\";\n")) ;; rely on face remap
       (insert "  overlap=false;\n")
       (insert "  splines=true;\n")
       (insert (format "  node [shape=box style=\"filled,rounded\" fillcolor=\"%s\" "
@@ -150,6 +172,33 @@ Returns an alist of (SOURCE-TITLE . (TARGET-TITLE ...))."
       (insert "}\n")
       (buffer-string))))
 
+(defun grove-graph--generate-mermaid (adjacency)
+  "Generate a Mermaid graph string from ADJACENCY list."
+  (let ((node-id (make-hash-table :test #'equal))
+        (counter 0))
+    (dolist (entry adjacency)
+      (unless (gethash (car entry) node-id)
+        (puthash (car entry) (format "n%d" counter) node-id)
+        (cl-incf counter)))
+    (with-temp-buffer
+      (insert (format "graph %s;\n" grove-graph-mmdr-direction))
+      (dolist (entry adjacency)
+        (let ((id (gethash (car entry) node-id))
+              (label (grove-graph--mermaid-escape (car entry))))
+          (insert (format "  %s[\"%s\"];\n" id label))))
+      (let ((seen (make-hash-table :test #'equal)))
+        (dolist (entry adjacency)
+          (let ((source-id (gethash (car entry) node-id)))
+            (dolist (target (cdr entry))
+              (let* ((target-id (gethash target node-id))
+                     (edge-key (if (string< source-id target-id)
+                                   (concat source-id "---" target-id)
+                                 (concat target-id "---" source-id))))
+                (when (and target-id (not (gethash edge-key seen)))
+                  (puthash edge-key t seen)
+                  (insert (format "  %s --- %s;\n" source-id target-id))))))))
+      (buffer-string))))
+
 ;;;; Render
 
 (defun grove-graph--render-svg (dot-string)
@@ -168,17 +217,134 @@ Returns an alist of (SOURCE-TITLE . (TARGET-TITLE ...))."
         (user-error "Graphviz failed (exit %d): %s" exit-code (buffer-string)))
       (buffer-string))))
 
+(defun grove-graph--render-mmdr-svg (mermaid-string)
+  "Render MERMAID-STRING to SVG using mmdr.  Returns the SVG string."
+  (unless (executable-find grove-graph-mmdr-executable)
+    (user-error "mmdr not found.  Install it and ensure `%s' is on your PATH"
+                grove-graph-mmdr-executable))
+  ;; Generate the JSON styling payload to align with Emacs customs
+  (let* ((config-alist
+          `((theme . "base")
+            (themeVariables . ((background . "transparent")
+                               (primaryColor . ,grove-graph-node-color)
+                               (lineColor . ,grove-graph-edge-color)
+                               (primaryTextColor . "#1e1e2e")
+                               (nodeBorder . ,grove-graph-edge-color)))))
+         (config-json (json-encode config-alist))
+         (config-file (make-temp-file "grove-mmdr-config-" nil ".json"))
+         (input-file (make-temp-file "grove-mmdr-in-" nil ".mmd"))
+         (output-file (make-temp-file "grove-mmdr-out-" nil ".svg")))
+    (unwind-protect
+        (progn
+          (with-temp-file config-file (insert config-json))
+          (with-temp-file input-file (insert mermaid-string))
+          (let ((exit-code (call-process grove-graph-mmdr-executable nil nil nil
+                                         "-i" input-file
+                                         "-o" output-file
+                                         "-c" config-file)))
+            (unless (zerop exit-code)
+              (user-error "mmdr failed (exit %d)" exit-code))
+            (with-temp-buffer
+              (insert-file-contents output-file)
+              (buffer-string))))
+      ;; Cleanup temp files
+      (ignore-errors
+        (delete-file config-file)
+        (delete-file input-file)
+        (delete-file output-file)))))
+
 ;;;; Mode
+
+(defvar-local grove-graph--scale 1.0
+  "Current zoom multiplier for the graph.")
+
+(defvar-local grove-graph--raw-svg nil
+  "Stores the raw SVG string to allow dynamic resizing without re-rendering.")
+
+(defun grove-graph--adjust-svg-dimensions (svg-string width height)
+  "Modifies the raw SVG string to scale cleanly to the window size.
+Replaces hardcoded bounds with the window's dimensions and enforces aspect ratio preservation."
+  (if (string-match "<svg\\([^>]*?\\)>" svg-string)
+      (let* ((attrs (match-string 1 svg-string))
+             ;; Strip out existing width and height declarations from the root tag
+             (clean-attrs (replace-regexp-in-string "[ \t\n\r]*\\(?:width\\|height\\)=\"[^\"]*\"" "" attrs)))
+        ;; Inject our pixel dimensions and aspect ratio command, keeping the original viewBox intact
+        (replace-match (format "<svg width=\"%d\" height=\"%d\" preserveAspectRatio=\"xMidYMid meet\"%s>"
+                               width height clean-attrs)
+                       t t svg-string))
+    svg-string))
+
+(defun grove-graph--update-display (&rest _)
+  "Redraws the SVG, keeping it perfectly centred at any scale factor.
+Safely executes even when triggered from a completely different buffer."
+  (let ((graph-buf (get-buffer "*grove-graph*")))
+    (when graph-buf
+      (with-current-buffer graph-buf
+        (let ((win (get-buffer-window graph-buf t)))
+          (when (and win grove-graph--raw-svg)
+            (let* ((win-width (window-body-width win t))
+                   (win-height (window-body-height win t))
+                   (scaled-svg (grove-graph--adjust-svg-dimensions 
+                                grove-graph--raw-svg win-width win-height))
+                   (inhibit-read-only t))
+              (erase-buffer)
+
+              (let* ((img (create-image scaled-svg 'svg t :scale grove-graph--scale))
+                     (img-width (truncate (* win-width grove-graph--scale)))
+                     (img-height (truncate (* win-height grove-graph--scale)))
+                     
+                     ;; Calculate once / + = scrol / - = pad
+                     (dx (truncate (/ (- img-width win-width) 2.0)))
+                     (dy (truncate (/ (- img-height win-height) 2.0)))
+                     
+                     (pad-x (max 0 (- dx)))
+                     (pad-y (max 0 (- dy))))
+
+                (when (> pad-y 0)
+                  (insert (propertize " " 'display `(space :height (,pad-y))) "\n"))
+                (when (> pad-x 0)
+                  (insert (propertize " " 'display `(space :width (,pad-x)))))
+
+                (insert-image img)
+                (goto-char (point-min))
+
+                ;; positive delta for scrollin
+                (set-window-hscroll win (truncate (/ (max 0 dx) (frame-char-width))))
+                (set-window-vscroll win (max 0 dy) t)))))))))
+
+(defun grove-graph-zoom-in ()
+  "Zoom in on the graph, maintaining centre alignment."
+  (interactive)
+  (setq grove-graph--scale (* grove-graph--scale 1.2))
+  (grove-graph--update-display))
+
+(defun grove-graph-zoom-out ()
+  "Zoom out of the graph, maintaining centre alignment."
+  (interactive)
+  (setq grove-graph--scale (/ grove-graph--scale 1.2))
+  (grove-graph--update-display))
+
+(defun grove-graph-zoom-reset ()
+  "Reset the graph zoom to perfectly fit the window."
+  (interactive)
+  (setq grove-graph--scale 1.0)
+  (grove-graph--update-display))
 
 (defvar-keymap grove-graph-mode-map
   :parent special-mode-map
-  "+" #'image-increase-size
-  "-" #'image-decrease-size
-  "0" #'image-transform-fit-to-window)
+  "+" #'grove-graph-zoom-in
+  "-" #'grove-graph-zoom-out
+  "0" #'grove-graph-zoom-reset)
 
 (define-derived-mode grove-graph-mode special-mode "Grove-Graph"
   "Major mode for viewing the grove graph."
-  :interactive nil)
+  :interactive nil
+  ;; Set the buffer's background face to match the graph's background.
+  ;; This seamlessly camouflages any empty padding added when preserving the aspect ratio.
+  (setq-local cursor-type nil)
+  (face-remap-add-relative 'default :background grove-graph-bg-color)
+
+  (add-hook 'window-size-change-functions #'grove-graph--update-display nil))
 
 ;;;; Command
 
@@ -189,16 +355,28 @@ Returns an alist of (SOURCE-TITLE . (TARGET-TITLE ...))."
   (grove--ensure-directory)
   (message "Building graph...")
   (let* ((adjacency (grove-graph--adjacency-list))
-         (dot (grove-graph--generate-dot adjacency))
-         (svg (grove-graph--render-svg dot))
+         (markup (if (eq grove-graph-renderer 'mmdr)
+                     (grove-graph--generate-mermaid adjacency)
+                   (grove-graph--generate-dot adjacency)))
+         (svg (if (eq grove-graph-renderer 'mmdr)
+                  (grove-graph--render-mmdr-svg markup)
+                (grove-graph--render-svg markup)))
          (buf (get-buffer-create "*grove-graph*")))
+    
     (with-current-buffer buf
+      ;; Initialise the mode first so buffer-local variables and hooks are set
+      (grove-graph-mode) 
+      (setq-local grove-graph--raw-svg svg)
       (let ((inhibit-read-only t))
-        (erase-buffer)
-        (insert-image (create-image svg 'svg t))
-        (goto-char (point-min))
-        (grove-graph-mode)))
+        (erase-buffer)))
+    
+    ;; Place the buffer in a window
     (grove-graph--display buf)
+    
+    ;; Now that the buffer has an active window, calculate dimensions and draw
+    (with-current-buffer buf
+      (grove-graph--update-display))
+    
     (message "Graph: %d notes, %d links"
              (length adjacency)
              (cl-reduce #'+ (mapcar (lambda (e) (length (cdr e))) adjacency)))))
