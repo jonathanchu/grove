@@ -119,18 +119,20 @@ prompt the user to choose."
     (grove-link-follow target)))
 
 (defun grove-link--profile-with-title (title)
-  "Return the profile name that has a cached note matching TITLE, or nil.
-Only searches profiles other than the currently active one."
+  "Return the profile name that has a note matching TITLE, or nil.
+Only searches profiles other than the currently active one.  Vaults are
+scanned on demand, so this also finds notes in profiles that have not
+been activated in this session."
   (catch 'found
-    (maphash
-     (lambda (profile-name cache)
-       (unless (eq profile-name grove--active-profile)
-         (maphash
-          (lambda (_file meta)
-            (when (string-equal-ignore-case (plist-get meta :title) title)
-              (throw 'found profile-name)))
-          cache)))
-     grove--profile-caches)))
+    (dolist (profile grove-profiles)
+      (let ((name (car profile)))
+        (unless (eq name grove--active-profile)
+          (when-let ((cache (grove--profile-cache name)))
+            (maphash
+             (lambda (_file meta)
+               (when (string-equal-ignore-case (plist-get meta :title) title)
+                 (throw 'found name)))
+             cache)))))))
 
 (defun grove-link-follow (title)
   "Follow a grove wikilink to TITLE.

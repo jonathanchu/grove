@@ -113,6 +113,19 @@ Creates a new empty cache lazily on first access per profile."
             cache))
     grove--cache))
 
+(defun grove--profile-cache (name)
+  "Return the note cache for profile NAME, scanning its vault if needed.
+Unlike `grove--active-cache', this populates the cache on first use so
+callers can inspect profiles the user has not activated this session.
+Returns nil if NAME is unknown or its directory does not exist."
+  (or (gethash name grove--profile-caches)
+      (let* ((profile (assq name grove-profiles))
+             (dir (and profile (grove--profile-directory profile))))
+        (when (and dir (file-directory-p dir))
+          (let ((grove--active-profile name))
+            (grove--refresh-cache)
+            (grove--active-cache))))))
+
 (defun grove--profile-for-file (file)
   "Return the profile name symbol whose directory contains FILE, or nil.
 Profiles with no `:directory' are skipped."
