@@ -21,6 +21,7 @@ An Obsidian-like note-taking mode for Emacs. One keybinding opens a full workspa
 - *Tag search* — find notes by =#hashtag= or org =:tag:= syntax
 - *Inbox review* — triage untagged notes
 - *Graph view* — visualize note connections via Graphviz
+- *Profiles* — keep separate vaults for personal and work notes, switch with one keybinding
 
 No database. No external Emacs dependencies. Just org files, a directory, and ripgrep.
 
@@ -146,13 +147,37 @@ The graph display adapts to your frame width — on wide frames (160+ columns) i
 
 Use =+= / =-= to zoom in/out and =0= to fit to window.
 
+** Profiles
+
+A profile is a named vault. Set =grove-profiles= to keep separate note collections — a personal one and a work one, say — and switch between them with =C-c v p=.
+
+#+begin_src emacs-lisp
+(setq grove-profiles
+      '((personal :directory "~/notes")
+        (work     :directory "~/work/notes")))
+#+end_src
+
+Everything is scoped to the active profile. The tree sidebar, search, tag search, backlinks, the graph, inbox review, capture, and daily notes all operate on that vault alone, and each profile keeps its own note cache — so switching is instant and vaults never bleed into each other. The sidebar header shows which one you're in as =Grove [work]=.
+
+A few things worth knowing:
+
+- With =grove-profiles= set, the first grove command prompts you to pick a profile, and =grove-directory= is ignored from then on. Leave =grove-directory= unset if you're using profiles.
+- The active profile isn't persisted. Emacs starts with none selected, so you'll be prompted again on the first command of each session.
+- =global-grove-mode= only enables =grove-mode= in the *active* profile's files. Notes in your other vaults open as plain org until you switch to their profile.
+- Grove points you at the right vault rather than doing the wrong thing quietly. Following a =[[wikilink]]= whose target lives elsewhere reports where it is instead of creating a duplicate, and =C-c v b= in a note from another profile tells you to switch first:
+
+  #+begin_example
+  Note "Recipes" is in profile [personal] — switch profiles to follow
+  Note is in profile [work] — switch profiles first
+  #+end_example
+
 * Configuration
 
 #+begin_src emacs-lisp
-;; Required: set your vault directory
+;; Set your vault directory — required unless you use profiles below
 (setq grove-directory "~/notes/")
 
-;; Optional: set profiles for separation of note vaults
+;; Optional: separate vaults, switched with C-c v p. Supersedes grove-directory.
 (setq grove-profiles
       '((personal :directory "~/remoteFolder/personal")
         (work     :directory "~/localFolder/work")
