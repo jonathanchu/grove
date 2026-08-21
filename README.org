@@ -70,19 +70,20 @@ Clone the repository and add it to your load path:
 
 Set your vault directory and press =C-c v v= to open the workspace.
 
-| Key       | Command              | Description              |
-|-----------+----------------------+--------------------------|
-| =C-c v v= | =grove-open=         | Open the grove workspace |
-| =C-c v q= | =grove-close=        | Close and restore layout |
-| =C-c v n= | =grove-capture=      | Quick capture a new note |
-| =C-c v f= | =grove-find=         | Find note by title       |
-| =C-c v s= | =grove-search=       | Full-text ripgrep search |
-| =C-c v d= | =grove-daily=        | Open today's daily note  |
-| =C-c v b= | =grove-backlinks=    | Show backlinks for note  |
-| =C-c v t= | =grove-search-tag=   | Search by tag            |
-| =C-c v i= | =grove-inbox-review= | Triage untagged notes    |
-| =C-c v l= | =grove-link-insert=  | Insert a wikilink        |
-| =C-c v g= | =grove-graph=        | Show vault graph         |
+| Key       | Command                | Description              |
+|-----------+------------------------+--------------------------|
+| =C-c v v= | =grove-open=           | Open the grove workspace |
+| =C-c v q= | =grove-close=          | Close and restore layout |
+| =C-c v n= | =grove-capture=        | Quick capture a new note |
+| =C-c v f= | =grove-find=           | Find note by title       |
+| =C-c v s= | =grove-search=         | Full-text ripgrep search |
+| =C-c v d= | =grove-daily=          | Open today's daily note  |
+| =C-c v b= | =grove-backlinks=      | Show backlinks for note  |
+| =C-c v t= | =grove-search-tag=     | Search by tag            |
+| =C-c v i= | =grove-inbox-review=   | Triage untagged notes    |
+| =C-c v l= | =grove-link-insert=    | Insert a wikilink        |
+| =C-c v g= | =grove-graph=          | Show vault graph         |
+| =C-c v p= | =grove-switch-profile= | Switch the active vault  |
 
 ** Tree sidebar
 
@@ -150,6 +151,12 @@ Use =+= / =-= to zoom in/out and =0= to fit to window.
 #+begin_src emacs-lisp
 ;; Required: set your vault directory
 (setq grove-directory "~/notes/")
+
+;; Optional: set profiles for separation of note vaults
+(setq grove-profiles
+      '((personal :directory "~/remoteFolder/personal")
+        (work     :directory "~/localFolder/work")
+        (other    :directory "~/otherNotes")))
 
 ;; Optional: customize subdirectories (defaults shown)
 (setq grove-inbox-directory "inbox")

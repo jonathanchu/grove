@@ -42,7 +42,7 @@
      (lambda (path meta)
        (when (null (plist-get meta :tags))
          (push (cons (plist-get meta :title) path) result)))
-     grove--cache)
+     (grove--active-cache))
     (sort result (lambda (a b) (string< (car a) (car b))))))
 
 (defun grove-inbox--unlinked-notes ()
@@ -55,7 +55,7 @@ Checks each note for backlinks via ripgrep."
               (backlinks (grove-backlink--find title)))
          (when (null backlinks)
            (push (cons title path) result))))
-     grove--cache)
+     (grove--active-cache))
     (sort result (lambda (a b) (string< (car a) (car b))))))
 
 ;;;; Display
@@ -110,7 +110,7 @@ NOTES is a list of (TITLE . PATH)."
         (erase-buffer)
         (insert (propertize "Grove Inbox Review" 'face 'bold) "\n")
         (insert (propertize (format "%d notes in vault"
-                                    (hash-table-count grove--cache))
+                                    (hash-table-count (grove--active-cache)))
                             'face 'shadow)
                 "\n\n")
         (grove-inbox--insert-section

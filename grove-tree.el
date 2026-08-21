@@ -306,9 +306,15 @@ Directories come first, then files.  Hidden files are excluded."
       (with-current-buffer buf
         (let ((inhibit-read-only t))
           (erase-buffer)
+          (setq header-line-format
+                (propertize
+                 (if grove--active-profile
+                     (format " Grove [%s]" grove--active-profile)
+                   " Grove")
+                 'face 'bold))
           (setq grove-tree--ewoc
                 (ewoc-create #'grove-tree--print "" ""))
-          (grove-tree--populate grove-directory 0 nil))))))
+          (grove-tree--populate (grove--active-directory) 0 nil))))))
 
 (defun grove-tree--populate (directory depth parent-node)
   "Insert DIRECTORY entries at DEPTH after PARENT-NODE.
