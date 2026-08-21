@@ -83,6 +83,13 @@ Passed to `format-time-string'."
 (defvar grove--profile-caches (make-hash-table :test #'eq)
   "Hash table mapping profile name symbols to their vault cache hash tables.")
 
+(defun grove--profile-directory (profile)
+  "Return the expanded root directory of PROFILE, or nil if it has none.
+PROFILE is an entry of `grove-profiles'."
+  (let ((dir (plist-get (cdr profile) :directory)))
+    (when (stringp dir)
+      (file-name-as-directory (expand-file-name dir)))))
+
 (defun grove--active-directory ()
   "Return the root directory for the active profile or `grove-directory'.
 Returns nil if neither is configured."
@@ -90,8 +97,9 @@ Returns nil if neither is configured."
       (let ((profile (assq grove--active-profile grove-profiles)))
         (unless profile
           (user-error "Unknown grove profile: %s" grove--active-profile))
-        (file-name-as-directory
-         (expand-file-name (plist-get (cdr profile) :directory))))
+        (or (grove--profile-directory profile)
+            (user-error "Grove profile %s has no :directory"
+                        grove--active-profile)))
     (when grove-directory
       (file-name-as-directory (expand-file-name grove-directory)))))
 
@@ -106,15 +114,14 @@ Creates a new empty cache lazily on first access per profile."
     grove--cache))
 
 (defun grove--profile-for-file (file)
-  "Return the profile name symbol whose directory contains FILE, or nil."
+  "Return the profile name symbol whose directory contains FILE, or nil.
+Profiles with no `:directory' are skipped."
   (when grove-profiles
     (catch 'found
       (dolist (profile grove-profiles)
-        (let* ((name (car profile))
-               (dir (file-name-as-directory
-                     (expand-file-name (plist-get (cdr profile) :directory)))))
-          (when (string-prefix-p dir (expand-file-name file))
-            (throw 'found name)))))))
+        (let ((dir (grove--profile-directory profile)))
+          (when (and dir (string-prefix-p dir (expand-file-name file)))
+            (throw 'found (car profile))))))))
 
 ;;;; Vault cache
 
