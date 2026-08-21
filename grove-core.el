@@ -295,8 +295,11 @@ Downcases, replaces spaces with hyphens, strips non-alphanumeric characters."
     (if (string-empty-p name) "untitled" name)))
 
 (defun grove-file-p (file)
-  "Return non-nil if FILE is inside the active grove directory."
-  (when-let ((dir (grove--active-directory)))
+  "Return non-nil if FILE is inside the active grove directory.
+Returns nil rather than signaling when the active profile is
+misconfigured: this runs from `after-change-major-mode-hook' and
+`buffer-list-update-hook', where an error would break unrelated buffers."
+  (when-let ((dir (ignore-errors (grove--active-directory))))
     (and file (string-prefix-p dir (expand-file-name file)))))
 
 (provide 'grove-core)
