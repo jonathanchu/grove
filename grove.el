@@ -95,18 +95,30 @@
 ;;;###autoload
 (defun grove-switch-profile (name)
   "Switch the active grove profile to NAME.
-NAME must be a key in `grove-profiles'."
+NAME is a symbol or string naming a key in `grove-profiles'."
   (interactive
-   (list (completing-read "Grove profile: "
-                          (mapcar (lambda (p) (symbol-name (car p)))
-                                  grove-profiles)
-                          nil t)))
-  (setq grove--active-profile (intern name))
-  (when (get-buffer grove-tree-buffer-name)
-    (grove-tree-refresh))
-  (message "Grove profile: %s (%s)"
-           name
-           (abbreviate-file-name (grove--active-directory))))
+   (list (progn
+           (unless grove-profiles
+             (user-error "No grove profiles configured; see `grove-profiles'"))
+           (completing-read "Grove profile: "
+                            (mapcar (lambda (p) (symbol-name (car p)))
+                                    grove-profiles)
+                            nil t))))
+  (let ((profile (if (symbolp name) name (intern name)))
+        (previous grove--active-profile))
+    (unless (assq profile grove-profiles)
+      (user-error "Unknown grove profile: %s" profile))
+    (setq grove--active-profile profile)
+    ;; Restore the previous profile if the switch is aborted, so grove is
+    ;; never left half-switched.
+    (condition-case err
+        (when (get-buffer grove-tree-buffer-name)
+          (grove-tree-refresh))
+      (error (setq grove--active-profile previous)
+             (signal (car err) (cdr err))))
+    (message "Grove profile: %s (%s)"
+             profile
+             (abbreviate-file-name (grove--active-directory)))))
 
 ;;;; Global keymap
 
