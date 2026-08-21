@@ -14,6 +14,7 @@
 (require 'grove-link)
 (require 'grove-inbox)
 (require 'grove-tree)
+(require 'grove-ui)
 (require 'subr-x)
 
 (ert-deftest grove-parse-note-reads-beyond-4kb ()
@@ -142,6 +143,35 @@
         (cl-letf (((symbol-function 'executable-find) (lambda (&rest _) nil)))
           (should-error (grove-backlink--find "Note")
                         :type 'user-error))
+      (delete-directory grove-directory t))))
+
+(ert-deftest grove-tree-navigation-advances-past-previewed-entries ()
+  "Repeated `n' must reach every entry, not cycle the first few.
+Previewing selects the main window, so `grove-tree--set-current-file'
+runs with the tree window unselected.  Saving `point' there captured a
+stale buffer point while `ewoc-refresh' clobbered the window point,
+pinning navigation to the top of the tree."
+  (let* ((grove-profiles nil)
+         (grove-directory (make-temp-file "grove-nav" t))
+         (grove-tree-icons nil))
+    (unwind-protect
+        (progn
+          (dotimes (i 5)
+            (with-temp-file (expand-file-name (format "note-%d.org" i)
+                                              grove-directory)
+              (insert (format "#+title: Note %d\n" i))))
+          (grove-open)
+          (select-window (get-buffer-window grove-tree-buffer-name))
+          (goto-char (point-min))
+          (let (points)
+            (dotimes (_ 5)
+              (grove-tree-next)
+              (push (window-point (get-buffer-window grove-tree-buffer-name))
+                    points))
+            (setq points (nreverse points))
+            (should (equal points (sort (copy-sequence points) #'<)))
+            (should (= (length (delete-dups (copy-sequence points))) 5))))
+      (ignore-errors (grove-close))
       (delete-directory grove-directory t))))
 
 (provide 'grove-review-test)
