@@ -267,13 +267,13 @@ Returns (:title TITLE :tags TAGS :links LINKS :mtime MTIME)."
           :mtime mtime)))
 
 (defun grove--cacheable-note-p (file)
-  "Return non-nil when FILE should be included in the note cache."
-  (let ((name (file-name-nondirectory file)))
-    (and (string-suffix-p ".org" name)
-         (not (string-prefix-p ".#" name))
-         (not (and (string-prefix-p "#" name)
-                   (string-suffix-p "#" name)))
-         (not (string-suffix-p "~" name)))))
+  "Return non-nil when FILE should be included in the note cache.
+Only lock files need excluding here.  Callers scan for names ending in
+\".org\", which already leaves out autosave (\"#note.org#\") and backup
+(\"note.org~\") files.  It does not leave out the \".#note.org\" symlink
+Emacs creates while a buffer is modified, and that symlink dangles once
+the note is renamed or deleted, which breaks the whole refresh."
+  (not (string-prefix-p ".#" (file-name-nondirectory file))))
 
 (defun grove--refresh-cache ()
   "Refresh the vault cache by scanning the active grove directory.
