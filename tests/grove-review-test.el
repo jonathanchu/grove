@@ -36,6 +36,73 @@
                        '("Project: Alpha")))
       (delete-file file))))
 
+(ert-deftest grove-refresh-cache-ignores-emacs-lockfiles ()
+  (let* ((grove-profiles nil)
+         (grove--active-profile nil)
+         (grove-directory (make-temp-file "grove-vault" t))
+         (note (expand-file-name "test-2.org" grove-directory))
+         (lockfile (expand-file-name ".#test-2.org" grove-directory))
+         (grove--cache (make-hash-table :test #'equal)))
+    (unwind-protect
+        (progn
+          (with-temp-file note
+            (insert "#+title: Real note\n"))
+          ;; Emacs lockfiles are symlinks whose names can still match the
+          ;; recursive .org scan, they should never be parsed as notes.
+          (make-symbolic-link note lockfile)
+          (delete-file note)
+          (grove--refresh-cache)
+          (should-not (gethash lockfile grove--cache))
+          (should (= (hash-table-count grove--cache) 0)))
+      (delete-directory grove-directory t))))
+
+(ert-deftest grove-refresh-cache-ignores-emacs-autosave-and-backup-files ()
+  ;; These are excluded by the "\\.org\\\='" scan regexp rather than by
+  ;; `grove--cacheable-note-p', since neither name ends in ".org".  The
+  ;; test guards the scan, so it would catch a regression that widened it.
+  (let* ((grove-profiles nil)
+         (grove--active-profile nil)
+         (grove-directory (make-temp-file "grove-vault" t))
+         (autosave (expand-file-name "#draft.org#" grove-directory))
+         (backup (expand-file-name "draft.org~" grove-directory))
+         (note (expand-file-name "draft.org" grove-directory))
+         (grove--cache (make-hash-table :test #'equal)))
+    (unwind-protect
+        (progn
+          (with-temp-file autosave
+            (insert "#+title: Autosave\n"))
+          (with-temp-file backup
+            (insert "#+title: Backup\n"))
+          (with-temp-file note
+            (insert "#+title: Real draft\n"))
+          (grove--refresh-cache)
+          (should-not (gethash autosave grove--cache))
+          (should-not (gethash backup grove--cache))
+          (should (= (hash-table-count grove--cache) 1))
+          (should (equal (plist-get (gethash note grove--cache) :title)
+                         "Real draft")))
+      (delete-directory grove-directory t))))
+
+(ert-deftest grove-refresh-cache-keeps-uppercase-org-extensions ()
+  "Notes named .ORG must stay in the cache.
+`directory-files-recursively' matches its regexp with `case-fold-search'
+on, so uppercase extensions have always been scanned.  A case-sensitive
+extension check in `grove--cacheable-note-p' dropped them silently."
+  (let* ((grove-profiles nil)
+         (grove--active-profile nil)
+         (grove-directory (make-temp-file "grove-vault" t))
+         (upper (expand-file-name "UPPER.ORG" grove-directory))
+         (lower (expand-file-name "lower.org" grove-directory))
+         (grove--cache (make-hash-table :test #'equal)))
+    (unwind-protect
+        (progn
+          (with-temp-file upper (insert "#+title: Upper\n"))
+          (with-temp-file lower (insert "#+title: Lower\n"))
+          (grove--refresh-cache)
+          (should (gethash upper grove--cache))
+          (should (= (hash-table-count grove--cache) 2)))
+      (delete-directory grove-directory t))))
+
 (ert-deftest grove-link-fontify-allows-colons-in-note-titles ()
   (with-temp-buffer
     (insert "[[Project: Alpha]] [[https://example.com]]")
