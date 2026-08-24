@@ -12,7 +12,7 @@
 
 (let* ((this-file (or load-file-name buffer-file-name))
        (tests-directory (file-name-directory this-file)))
-  (dolist (file (directory-files tests-directory t "-test\\.el\\'"))
+  (dolist (file (directory-files tests-directory t "\\`[^.#].*-test\\.el\\'"))
     (load file nil 'nomessage)))
 
 (ert-run-tests-batch-and-exit)
