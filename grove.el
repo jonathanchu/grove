@@ -1,4 +1,4 @@
-;;; grove.el --- Obsidian-like note-taking for org files -*- lexical-binding: t -*-
+;;; grove.el --- Obsidian-like Org and Markdown notes -*- lexical-binding: t -*-
 
 ;; Copyright 2026 Jonathan Chu
 
@@ -26,10 +26,12 @@
 ;;; Commentary:
 
 ;; Grove is a simple, fast note-taking mode for Emacs that provides an
-;; Obsidian-like experience for org files.  One keybinding opens a full
-;; UI with a file tree sidebar and note editing area.
+;; Obsidian-like experience for a directory of notes.  One keybinding
+;; opens a full UI with a file tree sidebar and note editing area.
+;; Org and Markdown notes can share one vault.
 ;;
 ;; Features:
+;; - Org and Markdown notes side by side in one vault
 ;; - Built-in file tree sidebar
 ;; - Quick note capture
 ;; - Wikilinks with backlinks (ripgrep-powered, no database)

@@ -22,7 +22,7 @@
 
 ;;; Commentary:
 
-;; Quick note capture for grove.  Opens a temporary org buffer where
+;; Quick note capture for grove.  Opens a temporary buffer where
 ;; the user can type freely.  On save, the first non-empty line becomes
 ;; the title and the note is saved to the inbox directory.
 

@@ -23,8 +23,9 @@
 ;;; Commentary:
 
 ;; Wikilink support for grove.  Provides font-lock highlighting and
-;; follow-link behavior for [[wikilinks]] in org buffers that are
-;; part of a grove vault.
+;; follow-link behavior for [[wikilinks]] in notes that are part of a
+;; grove vault.  The syntax is identical in Org and Markdown, so this
+;; needs no per-format handling.
 
 ;;; Code:
 

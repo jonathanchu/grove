@@ -34,7 +34,7 @@
 ;;;; Customization
 
 (defgroup grove nil
-  "Obsidian-like note-taking for org files."
+  "Obsidian-like note-taking for Org and Markdown notes."
   :group 'org
   :prefix "grove-")
 
