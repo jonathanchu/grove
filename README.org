@@ -3,7 +3,7 @@
 
 #+html: <p align="center"><img src="grove-logo.png" /></p>
 
-An Obsidian-like note-taking mode for Emacs. One keybinding opens a full workspace with a file tree sidebar and your org notes.
+An Obsidian-like note-taking mode for Emacs. One keybinding opens a full workspace with a file tree sidebar and your notes.
 
 [[file:grove-screenshot.png]]
 
@@ -12,6 +12,7 @@ An Obsidian-like note-taking mode for Emacs. One keybinding opens a full workspa
 
 * Features
 
+- *Org and Markdown* — both formats in one vault, read side by side
 - *File tree sidebar* with expand/collapse, indent guides, current file tracking, item counts, optional nerd font icons, and note preview on navigation
 - *Quick capture* — just type, first line becomes the title, saved to your inbox
 - *Wikilinks* — =[[note title]]= syntax with font-lock, click to follow, create on missing
@@ -23,7 +24,7 @@ An Obsidian-like note-taking mode for Emacs. One keybinding opens a full workspa
 - *Graph view* — visualize note connections via Graphviz
 - *Profiles* — keep separate vaults for personal and work notes, switch with one keybinding
 
-No database. No external Emacs dependencies. Just org files, a directory, and ripgrep.
+No database. No external Emacs dependencies. Just plain text files, a directory, and ripgrep.
 
 * Requirements
 
@@ -51,7 +52,7 @@ Grove is available on [[https://melpa.org/#/grove][MELPA]]. After [[https://melp
   (global-grove-mode 1))
 #+end_src
 
-=global-grove-mode= activates =grove-mode= in any org buffer that lives inside =grove-directory=, which enables wikilink font-locking and the =C-c C-l= keybinding for inserting links. Omit it if you'd rather enable =grove-mode= manually per buffer.
+=global-grove-mode= activates =grove-mode= in any note that lives inside =grove-directory=, which enables wikilink font-locking and the =C-c C-l= keybinding for inserting links. Omit it if you'd rather enable =grove-mode= manually per buffer.
 
 ** Manual
 
@@ -99,7 +100,7 @@ Set your vault directory and press =C-c v v= to open the workspace.
 
 ** Capture
 
-=C-c v n= opens =*grove-capture*=, a blank org buffer. Type freely — no prompts, no template. The first line becomes the title; everything below becomes the body.
+=C-c v n= opens =*grove-capture*=, a blank buffer in =grove-default-format=. Type freely — no prompts, no template. The first line becomes the title; everything below becomes the body.
 
 - =C-c C-c= saves to the inbox
 - =C-c C-k= discards
@@ -123,6 +124,43 @@ and pressing =C-c C-c= writes =inbox/project-ideas-for-next-quarter.org=:
 #+end_src
 
 Filenames are derived from the title (lowercased, spaces to dashes). A numeric suffix is appended on collision.
+
+** Org and Markdown
+
+Grove reads =.org= and =.md= notes from the same vault at the same time. Point it at an existing Obsidian vault and the tree, search, backlinks, and graph work immediately — =[[wikilinks]]= are the same syntax in both formats, so nothing needs converting.
+
+Titles and tags are read per format:
+
+|       | Org                              | Markdown                                              |
+|-------+----------------------------------+-------------------------------------------------------|
+| Title | =#+title:=                       | front matter =title:=, first =#= heading, or filename |
+| Tags  | =#+filetags:=, inline =#hashtag= | front matter =tags:=, inline =#hashtag=               |
+
+Front matter =tags:= accepts both YAML forms Obsidian writes — =tags: [a, b]= on one line, or a =- a= list beneath the key.
+
+New notes — capture, daily notes, and the note offered when you follow a wikilink to a title that doesn't exist yet — are written in =grove-default-format=, which defaults to ='org=:
+
+#+begin_src emacs-lisp
+(setq grove-default-format 'md)
+#+end_src
+
+Existing notes are always read in their own format, whatever this is set to. Markdown notes grove creates get YAML front matter rather than a bare heading, so that a title punctuation strips out of the filename — =Project: Alpha= becomes =project-alpha.md= — still round trips.
+
+The tree sidebar follows the same setting: notes in =grove-default-format= show as bare names, and notes in any other format keep their extension, so =meeting.org= and =meeting.md= in one directory stay tellable apart.
+
+#+begin_example
+  meeting
+  meeting.md
+  notes
+#+end_example
+
+To restrict grove to one format, set =grove-file-extensions=:
+
+#+begin_src emacs-lisp
+(setq grove-file-extensions '("org"))   ; ignore .md files entirely
+#+end_src
+
+=markdown-mode= is not required. Grove does not depend on it, and wikilinks work in =.md= notes whether or not it is installed — though you will probably want it for editing.
 
 ** Inbox review
 
@@ -163,7 +201,7 @@ A few things worth knowing:
 
 - With =grove-profiles= set, the first grove command prompts you to pick a profile, and =grove-directory= is ignored from then on. Leave =grove-directory= unset if you're using profiles.
 - The active profile isn't persisted. Emacs starts with none selected, so you'll be prompted again on the first command of each session.
-- =global-grove-mode= only enables =grove-mode= in the *active* profile's files. Notes in your other vaults open as plain org until you switch to their profile.
+- =global-grove-mode= only enables =grove-mode= in the *active* profile's files. Notes in your other vaults open as plain text until you switch to their profile.
 - Grove points you at the right vault rather than doing the wrong thing quietly. Following a =[[wikilink]]= whose target lives elsewhere reports where it is instead of creating a duplicate, and =C-c v b= in a note from another profile tells you to switch first:
 
   #+begin_example
@@ -186,6 +224,12 @@ A few things worth knowing:
 ;; Optional: customize subdirectories (defaults shown)
 (setq grove-inbox-directory "inbox")
 (setq grove-daily-directory "daily")
+
+;; Optional: which extensions count as notes (default shown)
+(setq grove-file-extensions '("org" "md"))
+
+;; Optional: format for notes grove creates (default shown)
+(setq grove-default-format 'org)     ; or 'md
 
 ;; Optional: daily note filename format (default shown)
 (setq grove-daily-format "%Y-%m-%d")

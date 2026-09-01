@@ -174,6 +174,32 @@ extension check in `grove--cacheable-note-p' dropped them silently."
           (kill-buffer grove-tree-buffer-name))
       (delete-directory grove-directory t))))
 
+(ert-deftest grove-tree-shows-uppercase-extensions ()
+  "The sidebar must list the same notes the cache holds.
+`directory-files-recursively' matches with `case-fold-search' on, so
+UPPER.ORG has always been cached (see 40ab08a), but the tree filtered
+entries with a case-sensitive `string-suffix-p' and hid them."
+  (let* ((grove-profiles nil)
+         (grove--active-profile nil)
+         (grove-directory (make-temp-file "grove-vault" t)))
+    (unwind-protect
+        (progn
+          (with-temp-file (expand-file-name "UPPER.ORG" grove-directory)
+            (insert "#+title: Upper\n"))
+          (with-temp-file (expand-file-name "lower.org" grove-directory)
+            (insert "#+title: Lower\n"))
+          (with-current-buffer (get-buffer-create grove-tree-buffer-name)
+            (grove-tree-mode)
+            (clrhash grove-tree--expanded)
+            (grove-tree-refresh)
+            (let (items)
+              (ewoc-map (lambda (node) (push (grove-tree-node-name node) items))
+                        grove-tree--ewoc)
+              (should (member "UPPER" items))
+              (should (member "lower" items))))
+          (kill-buffer grove-tree-buffer-name))
+      (delete-directory grove-directory t))))
+
 (ert-deftest grove-tree-tracks-current-file-via-hooks ()
   (let* ((grove-directory (make-temp-file "grove-vault" t))
          (file-a (expand-file-name "a.org" grove-directory))
