@@ -28,6 +28,8 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'seq)
+(require 'subr-x)
 
 ;;;; Customization
 
@@ -38,8 +40,8 @@
 
 (defcustom grove-directory nil
   "Root directory for grove notes.
-All org files in this directory and its subdirectories are
-considered part of the vault.
+Every file in this directory and its subdirectories whose extension
+is in `grove-file-extensions' is considered part of the vault.
 When `grove-profiles' is non-nil, this is used only as a fallback
 for configs that have not yet migrated to profiles."
   :type '(choice (const nil) directory)
@@ -57,11 +59,15 @@ Use `grove-switch-profile' to select the active profile."
                 :value-type (plist :key-type keyword :value-type sexp))
   :group 'grove)
 
-(defcustom grove-file-extensions '("org")
+(defcustom grove-file-extensions '("org" "md")
   "List of file extensions, without the leading dot, treated as notes.
 Every file under the vault root with one of these extensions is
 scanned, cached, searched, and shown in the tree sidebar.  Extensions
-are compared case-insensitively, so \"org\" also covers NOTE.ORG."
+are compared case-insensitively, so \"org\" also covers NOTE.ORG.
+
+Org and Markdown notes can share one vault; grove reads each in its own
+format.  An extension grove has no format for is still indexed, but its
+title and tags are read with the Org rules."
   :type '(repeat string)
   :group 'grove)
 
@@ -167,8 +173,10 @@ This excludes Grove wikilinks such as note titles containing colons."
 
 (defun grove--collect-inline-tags ()
   "Return inline hashtags from the current buffer.
-Matches #tag-style markers while ignoring Org keyword lines such as
-#+title: and returns tags without the leading hash."
+Matches #tag-style markers and returns them without the leading hash.
+Org keyword lines such as #+title: are ignored, as are Markdown ATX
+headings: those put whitespace after the hash, which the regexp does
+not accept."
   (let (tags)
     (goto-char (point-min))
     (while (re-search-forward grove--hashtag-regexp nil t)
@@ -245,33 +253,154 @@ Appends a numeric suffix if the file already exists."
           (setq n (1+ n)))
         path))))
 
+;;;; Note formats
+
+(defconst grove--formats
+  '((org :extension "org" :metadata-fn grove--org-metadata)
+    (md  :extension "md"  :metadata-fn grove--md-metadata))
+  "Alist of note formats grove understands.
+Each entry is (FORMAT . PLIST).  `:extension' is the file extension
+that selects the format, `:metadata-fn' a function returning the
+note's (TITLE . TAGS) from the current buffer.")
+
+(defun grove--format-property (format property)
+  "Return PROPERTY of FORMAT, or nil if FORMAT is unknown."
+  (plist-get (cdr (assq format grove--formats)) property))
+
+(defun grove--format-for-file (file)
+  "Return the format symbol for FILE, based on its extension.
+Defaults to `org' for extensions no format claims, so an unrecognized
+note is still indexed rather than dropped."
+  (let ((extension (file-name-extension file)))
+    (or (and extension
+             (car (seq-find
+                   (lambda (entry)
+                     (string-equal-ignore-case
+                      (plist-get (cdr entry) :extension) extension))
+                   grove--formats)))
+        'org)))
+
+;;;; Metadata extraction
+
+(defun grove--org-metadata ()
+  "Return (TITLE . TAGS) from the Org keywords in the current buffer.
+Reads #+title: and #+filetags:.  Either element is nil when absent."
+  (let (title tags)
+    (goto-char (point-min))
+    (when (re-search-forward "^#\\+title:\\s-*\\(.+\\)" nil t)
+      (setq title (string-trim (match-string-no-properties 1))))
+    (goto-char (point-min))
+    (when (re-search-forward "^#\\+filetags:\\s-*\\(.+\\)" nil t)
+      (setq tags (split-string (match-string-no-properties 1) ":" t "\\s-*")))
+    (cons title tags)))
+
+(defun grove--md-unquote (string)
+  "Return STRING trimmed of surrounding quotes and a leading hash.
+Markdown front matter writes tags both as \"tag\" and as #tag; grove
+stores them bare so they match the inline #hashtags of a note body."
+  (let ((trimmed (string-trim string)))
+    (when (and (> (length trimmed) 1)
+               (memq (aref trimmed 0) '(?\" ?'))
+               (eq (aref trimmed 0) (aref trimmed (1- (length trimmed)))))
+      (setq trimmed (substring trimmed 1 -1)))
+    (string-remove-prefix "#" trimmed)))
+
+(defun grove--md-frontmatter-end ()
+  "Return the position where YAML front matter ends, or nil if there is none.
+Point is left just after the opening delimiter.  Front matter counts
+only when it opens on the very first line, as YAML requires."
+  (goto-char (point-min))
+  (when (looking-at "---[[:blank:]]*$")
+    (forward-line 1)
+    (when (re-search-forward "^\\(?:---\\|\\.\\.\\.\\)[[:blank:]]*$" nil t)
+      (prog1 (match-beginning 0)
+        (goto-char (point-min))
+        (forward-line 1)))))
+
+(defun grove--md-frontmatter-title (end)
+  "Return the front matter title: value before END, or nil."
+  (when (re-search-forward "^title:[[:blank:]]*\\(.+\\)$" end t)
+    (let ((title (grove--md-unquote (match-string-no-properties 1))))
+      (unless (string-empty-p title) title))))
+
+(defun grove--md-frontmatter-tags (start end)
+  "Return the front matter tags: value between START and END, or nil.
+Accepts both YAML forms Obsidian writes: a flow sequence on the key's
+own line (\"tags: [a, b]\" or \"tags: a, b\") and a block sequence of
+\"- tag\" lines beneath it."
+  (goto-char start)
+  (when (re-search-forward "^tags:[[:blank:]]*\\(.*\\)$" end t)
+    (let ((inline (string-trim (match-string-no-properties 1)))
+          tags)
+      (if (string-empty-p inline)
+          (let ((scanning t))
+            (while (and scanning
+                        (zerop (forward-line 1))
+                        (< (point) end)
+                        (looking-at "[[:blank:]]*-[[:blank:]]*\\(.+\\)$"))
+              (let ((tag (grove--md-unquote (match-string-no-properties 1))))
+                (if (string-empty-p tag)
+                    (setq scanning nil)
+                  (push tag tags)))))
+        (dolist (tag (split-string (string-trim inline "\\[" "\\]") "," t))
+          (dolist (word (split-string tag nil t))
+            (push (grove--md-unquote word) tags))))
+      (nreverse (seq-remove #'string-empty-p tags)))))
+
+(defun grove--md-metadata ()
+  "Return (TITLE . TAGS) for the Markdown note in the current buffer.
+The title is the front matter title:, else the first level-one ATX
+heading, else nil so the caller can fall back to the filename.  Tags
+come from a front matter tags: key; inline #hashtags are collected
+separately for every format."
+  (let* ((end (grove--md-frontmatter-end))
+         (body (if end (save-excursion (goto-char end) (forward-line 1) (point))
+                 (point-min)))
+         title tags)
+    (when end
+      (setq title (save-excursion (grove--md-frontmatter-title end)))
+      (setq tags (grove--md-frontmatter-tags (point) end)))
+    (unless title
+      (goto-char body)
+      (when (re-search-forward "^#[[:blank:]]+\\(.+?\\)[[:blank:]]*#*[[:blank:]]*$"
+                               nil t)
+        (setq title (string-trim (match-string-no-properties 1)))))
+    (cons title tags)))
+
+;;;; Note parsing
+
+(defun grove--collect-wikilinks ()
+  "Return the wikilink targets in the current buffer, in document order.
+Standard Org link targets such as https: or file: are skipped."
+  (let (links)
+    (goto-char (point-min))
+    (while (re-search-forward "\\[\\[\\([^]]+\\)\\]\\]" nil t)
+      (let ((link (match-string-no-properties 1)))
+        (unless (grove--org-link-target-p link)
+          (push link links))))
+    (nreverse links)))
+
 (defun grove--parse-note (file)
-  "Parse an org FILE and return a metadata plist.
-Returns (:title TITLE :tags TAGS :links LINKS :mtime MTIME)."
+  "Parse note FILE and return a metadata plist.
+Returns (:title TITLE :tags TAGS :links LINKS :mtime MTIME).
+Title and tags are read with the rules of FILE's format; wikilinks and
+inline #hashtags are collected identically for every format, since both
+syntaxes mean the same thing in Org and Markdown."
   (let ((mtime (file-attribute-modification-time (file-attributes file)))
+        (metadata-fn (grove--format-property (grove--format-for-file file)
+                                             :metadata-fn))
         title tags links)
     (with-temp-buffer
       (insert-file-contents file)
-      ;; Extract #+title:
-      (goto-char (point-min))
-      (when (re-search-forward "^#\\+title:\\s-*\\(.+\\)" nil t)
-        (setq title (string-trim (match-string 1))))
-      ;; Extract #+filetags: and inline #hashtags.
-      (goto-char (point-min))
-      (when (re-search-forward "^#\\+filetags:\\s-*\\(.+\\)" nil t)
-        (setq tags (split-string (match-string 1) ":" t "\\s-*")))
+      (let ((metadata (funcall metadata-fn)))
+        (setq title (car metadata)
+              tags (cdr metadata)))
       (setq tags (grove--merge-tags tags (grove--collect-inline-tags)))
-      ;; Extract [[wikilinks]]
-      (goto-char (point-min))
-      (while (re-search-forward "\\[\\[\\([^]]+\\)\\]\\]" nil t)
-        (let ((link (match-string 1)))
-          ;; Skip standard org links like http: or file:
-          (unless (grove--org-link-target-p link)
-            (push link links)))))
+      (setq links (grove--collect-wikilinks)))
     (list :title (or title (file-name-sans-extension
                             (file-name-nondirectory file)))
           :tags (and tags (copy-sequence tags))
-          :links (nreverse links)
+          :links links
           :mtime mtime)))
 
 (defun grove--note-extension-regexp ()
