@@ -57,6 +57,14 @@ Use `grove-switch-profile' to select the active profile."
                 :value-type (plist :key-type keyword :value-type sexp))
   :group 'grove)
 
+(defcustom grove-file-extensions '("org")
+  "List of file extensions, without the leading dot, treated as notes.
+Every file under the vault root with one of these extensions is
+scanned, cached, searched, and shown in the tree sidebar.  Extensions
+are compared case-insensitively, so \"org\" also covers NOTE.ORG."
+  :type '(repeat string)
+  :group 'grove)
+
 (defcustom grove-inbox-directory "inbox"
   "Subdirectory of `grove-directory' for captured notes.
 Relative to `grove-directory'."
@@ -266,13 +274,28 @@ Returns (:title TITLE :tags TAGS :links LINKS :mtime MTIME)."
           :links (nreverse links)
           :mtime mtime)))
 
+(defun grove--note-regexp ()
+  "Return a regexp matching note filenames by their extension.
+Built from `grove-file-extensions'.  Intended for
+`directory-files-recursively', which matches with `case-fold-search'
+enabled, so this also picks up NOTE.ORG and NOTE.MD."
+  (concat "\\." (regexp-opt grove-file-extensions) "\\'"))
+
+(defun grove--note-file-p (file)
+  "Return non-nil when FILE has an extension in `grove-file-extensions'.
+Compares case-insensitively so callers agree with the vault scan in
+`grove--refresh-cache', which folds case."
+  (when-let ((ext (file-name-extension file)))
+    (seq-contains-p grove-file-extensions ext #'string-equal-ignore-case)))
+
 (defun grove--cacheable-note-p (file)
   "Return non-nil when FILE should be included in the note cache.
-Only lock files need excluding here.  Callers scan for names ending in
-\".org\", which already leaves out autosave (\"#note.org#\") and backup
-(\"note.org~\") files.  It does not leave out the \".#note.org\" symlink
-Emacs creates while a buffer is modified, and that symlink dangles once
-the note is renamed or deleted, which breaks the whole refresh."
+Only lock files need excluding here.  Callers scan with
+`grove--note-regexp', which already leaves out autosave
+(\"#note.org#\") and backup (\"note.org~\") files.  It does not leave
+out the \".#note.org\" symlink Emacs creates while a buffer is
+modified, and that symlink dangles once the note is renamed or deleted,
+which breaks the whole refresh."
   (not (string-prefix-p ".#" (file-name-nondirectory file))))
 
 (defun grove--refresh-cache ()
@@ -282,7 +305,8 @@ Only re-parses files whose mtime has changed."
   (let* ((dir (grove--active-directory))
          (cache (grove--active-cache))
          (files (seq-filter #'grove--cacheable-note-p
-                            (directory-files-recursively dir "\\.org\\'")))
+                            (directory-files-recursively
+                             dir (grove--note-regexp))))
          (seen (make-hash-table :test #'equal)))
     ;; Update or add entries
     (dolist (file files)
