@@ -274,12 +274,21 @@ Returns (:title TITLE :tags TAGS :links LINKS :mtime MTIME)."
           :links (nreverse links)
           :mtime mtime)))
 
+(defun grove--note-extension-regexp ()
+  "Return an unanchored regexp matching a note file extension.
+Built from `grove-file-extensions'.  Use this to pick note paths out
+of a larger string, such as a line of ripgrep output."
+  (concat "\\." (regexp-opt grove-file-extensions)))
+
 (defun grove--note-regexp ()
   "Return a regexp matching note filenames by their extension.
-Built from `grove-file-extensions'.  Intended for
-`directory-files-recursively', which matches with `case-fold-search'
-enabled, so this also picks up NOTE.ORG and NOTE.MD."
-  (concat "\\." (regexp-opt grove-file-extensions) "\\'"))
+Intended for `directory-files-recursively', which matches with
+`case-fold-search' enabled, so this also picks up NOTE.ORG and NOTE.MD."
+  (concat (grove--note-extension-regexp) "\\'"))
+
+(defun grove--rg-glob-args ()
+  "Return ripgrep --glob arguments restricting a search to note files."
+  (mapcar (lambda (ext) (format "--glob=*.%s" ext)) grove-file-extensions))
 
 (defun grove--note-file-p (file)
   "Return non-nil when FILE has an extension in `grove-file-extensions'.
