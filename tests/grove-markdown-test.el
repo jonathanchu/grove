@@ -15,6 +15,7 @@
 (require 'grove-link)
 (require 'grove-daily)
 (require 'grove)
+(require 'grove-tree)
 
 (defmacro grove-markdown-test--with-note (extension content &rest body)
   "Write CONTENT to a temporary note with EXTENSION and run BODY.
@@ -220,6 +221,35 @@ support is for."
           (grove--turn-on)
           (should-not grove-mode)
           (kill-buffer (current-buffer)))
+      (delete-directory grove-directory t))))
+
+(ert-deftest grove-tree-shows-extensions-of-non-default-formats ()
+  "Two notes with one basename must not render as identical rows."
+  (let* ((grove-profiles nil)
+         (grove--active-profile nil)
+         (grove-directory (make-temp-file "grove-vault" t)))
+    (unwind-protect
+        (progn
+          (with-temp-file (expand-file-name "note.org" grove-directory)
+            (insert "#+title: Org\n"))
+          (with-temp-file (expand-file-name "note.md" grove-directory)
+            (insert "# Md\n"))
+          (with-temp-file (expand-file-name "only.md" grove-directory)
+            (insert "# Only\n"))
+          (dolist (case '((org . ("note" "note.md" "only.md"))
+                          (md  . ("note" "note.org" "only"))))
+            (let ((grove-default-format (car case)))
+              (with-current-buffer (get-buffer-create grove-tree-buffer-name)
+                (grove-tree-mode)
+                (clrhash grove-tree--expanded)
+                (grove-tree-refresh)
+                (let (names)
+                  (ewoc-map (lambda (node)
+                              (push (grove-tree-node-name node) names))
+                            grove-tree--ewoc)
+                  (should (equal (sort names #'string<)
+                                 (sort (copy-sequence (cdr case)) #'string<)))))))
+          (kill-buffer grove-tree-buffer-name))
       (delete-directory grove-directory t))))
 
 (provide 'grove-markdown-test)

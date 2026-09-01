@@ -159,6 +159,22 @@ DIR-P is non-nil for directories, EXPANDED is non-nil if expanded."
                   (propertize (format " (%d)" count) 'face 'grove-tree-guide)
                 "")))))
 
+(defun grove-tree--display-name (name)
+  "Return the sidebar label for note file NAME.
+A note in `grove-default-format' shows as a bare basename; a note in
+any other format keeps its extension, so a vault holding both foo.org
+and foo.md does not render two identical rows.
+
+Tolerates a misconfigured `grove-default-format' rather than signaling:
+this runs inside ewoc printing, where an error would break the sidebar."
+  (let ((extension (file-name-extension name))
+        (default (ignore-errors
+                   (grove--format-property grove-default-format :extension))))
+    (if (and extension default
+             (string-equal-ignore-case extension default))
+        (file-name-sans-extension name)
+      name)))
+
 (defun grove-tree--list-entries (directory depth)
   "Return a sorted list of `grove-tree-node' structs for DIRECTORY at DEPTH.
 Directories come first, then files.  Hidden files are excluded."
@@ -177,7 +193,7 @@ Directories come first, then files.  Hidden files are excluded."
             (when (grove--note-file-p name)
               (push (make-grove-tree-node
                      :path file
-                     :name (file-name-sans-extension name)
+                     :name (grove-tree--display-name name)
                      :depth depth
                      :directory-p nil
                      :expanded-p nil)

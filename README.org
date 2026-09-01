@@ -146,6 +146,14 @@ New notes — capture, daily notes, and the note offered when you follow a wikil
 
 Existing notes are always read in their own format, whatever this is set to. Markdown notes grove creates get YAML front matter rather than a bare heading, so that a title punctuation strips out of the filename — =Project: Alpha= becomes =project-alpha.md= — still round trips.
 
+The tree sidebar follows the same setting: notes in =grove-default-format= show as bare names, and notes in any other format keep their extension, so =meeting.org= and =meeting.md= in one directory stay tellable apart.
+
+#+begin_example
+  meeting
+  meeting.md
+  notes
+#+end_example
+
 To restrict grove to one format, set =grove-file-extensions=:
 
 #+begin_src emacs-lisp
