@@ -14,6 +14,7 @@
 (require 'grove-capture)
 (require 'grove-link)
 (require 'grove-daily)
+(require 'grove)
 
 (defmacro grove-markdown-test--with-note (extension content &rest body)
   "Write CONTENT to a temporary note with EXTENSION and run BODY.
@@ -193,6 +194,31 @@ beside it."
           (should (equal (file-name-extension (buffer-file-name)) "md"))
           (should (string-prefix-p "---\ntitle: " (buffer-string)))
           (should (string-match-p "^date: " (buffer-string)))
+          (kill-buffer (current-buffer)))
+      (delete-directory grove-directory t))))
+
+(ert-deftest grove-turn-on-activates-in-markdown-notes ()
+  "Activation keys on the file, not the major mode.
+Without `markdown-mode' installed a .md note opens in `fundamental-mode',
+and a mode test would leave wikilinks dead in exactly the vaults this
+support is for."
+  (let* ((grove-profiles nil)
+         (grove--active-profile nil)
+         (grove-directory (make-temp-file "grove-vault" t))
+         (note (expand-file-name "note.md" grove-directory))
+         (other (expand-file-name "notes.txt" grove-directory)))
+    (unwind-protect
+        (progn
+          (with-temp-file note (insert "# Note\n"))
+          (with-temp-file other (insert "not a note\n"))
+          (find-file note)
+          (fundamental-mode)
+          (grove--turn-on)
+          (should grove-mode)
+          (kill-buffer (current-buffer))
+          (find-file other)
+          (grove--turn-on)
+          (should-not grove-mode)
           (kill-buffer (current-buffer)))
       (delete-directory grove-directory t))))
 
