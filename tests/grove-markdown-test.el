@@ -13,6 +13,7 @@
 (require 'grove-core)
 (require 'grove-capture)
 (require 'grove-link)
+(require 'grove-daily)
 
 (defmacro grove-markdown-test--with-note (extension content &rest body)
   "Write CONTENT to a temporary note with EXTENSION and run BODY.
@@ -154,6 +155,44 @@ Body line
           (grove-link-follow "New Note")
           (should (equal (file-name-nondirectory (buffer-file-name)) "new-note.md"))
           (should (equal (buffer-string) "---\ntitle: \"New Note\"\n---\n\n"))
+          (kill-buffer (current-buffer)))
+      (delete-directory grove-directory t))))
+
+(ert-deftest grove-daily-opens-an-existing-note-in-another-format ()
+  "A daily note already written as Markdown must not be shadowed.
+`grove-daily' built one fixed path from the default format, so an
+existing 2026-08-31.md went unseen and a second .org note was created
+beside it."
+  (let* ((grove-profiles nil)
+         (grove--active-profile nil)
+         (grove-directory (make-temp-file "grove-vault" t))
+         (grove-default-format 'org)
+         (existing (expand-file-name
+                    (concat (format-time-string grove-daily-format) ".md")
+                    (grove--daily-path))))
+    (unwind-protect
+        (progn
+          (with-temp-file existing (insert "---\ntitle: Already Here\n---\n"))
+          (grove-daily)
+          (should (equal (buffer-file-name) existing))
+          (should (equal (buffer-string) "---\ntitle: Already Here\n---\n"))
+          (kill-buffer (current-buffer))
+          (should (= (length (directory-files (file-name-directory existing)
+                                              nil "\\`[^.]"))
+                     1)))
+      (delete-directory grove-directory t))))
+
+(ert-deftest grove-daily-creates-the-default-format ()
+  (let* ((grove-profiles nil)
+         (grove--active-profile nil)
+         (grove-directory (make-temp-file "grove-vault" t))
+         (grove-default-format 'md))
+    (unwind-protect
+        (progn
+          (grove-daily)
+          (should (equal (file-name-extension (buffer-file-name)) "md"))
+          (should (string-prefix-p "---\ntitle: " (buffer-string)))
+          (should (string-match-p "^date: " (buffer-string)))
           (kill-buffer (current-buffer)))
       (delete-directory grove-directory t))))
 

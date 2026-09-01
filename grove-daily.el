@@ -32,17 +32,21 @@
 ;;;###autoload
 (defun grove-daily (&optional time)
   "Open or create the daily note for TIME.
-TIME defaults to the current time.  If the note doesn't exist,
-it is created with a title template."
+TIME defaults to the current time.  An existing note is opened in
+whatever format it was written in; a missing one is created in
+`grove-default-format' with a title template."
   (interactive)
   (grove--ensure-directory)
   (let* ((time (or time (current-time)))
-         (filename (concat (format-time-string grove-daily-format time)
-                           (grove--new-note-extension)))
-         (path (expand-file-name filename (grove--daily-path)))
-         (new-p (not (file-exists-p path))))
+         (basename (format-time-string grove-daily-format time))
+         (directory (grove--daily-path))
+         (existing (grove--existing-note-path directory basename))
+         (path (or existing
+                   (expand-file-name (concat basename
+                                             (grove--new-note-extension))
+                                     directory))))
     (find-file path)
-    (when new-p
+    (unless existing
       (insert (grove--note-header (format-time-string "%A, %B %e, %Y" time)
                                   (format-time-string "%F" time))
               "\n")

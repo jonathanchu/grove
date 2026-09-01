@@ -415,6 +415,16 @@ Standard Org link targets such as https: or file: are skipped."
           (push link links))))
     (nreverse links)))
 
+(defun grove--existing-note-path (directory basename)
+  "Return the path of an existing note named BASENAME in DIRECTORY, or nil.
+Every extension in `grove-file-extensions' is tried, so a note stays
+findable whatever `grove-default-format' is set to now."
+  (seq-some (lambda (extension)
+              (let ((path (expand-file-name (concat basename "." extension)
+                                            directory)))
+                (and (file-exists-p path) path)))
+            grove-file-extensions))
+
 (defun grove--parse-note (file)
   "Parse note FILE and return a metadata plist.
 Returns (:title TITLE :tags TAGS :links LINKS :mtime MTIME).
