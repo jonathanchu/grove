@@ -11,6 +11,8 @@
 
 (require 'ert)
 (require 'grove-core)
+(require 'grove-capture)
+(require 'grove-link)
 
 (defmacro grove-markdown-test--with-note (extension content &rest body)
   "Write CONTENT to a temporary note with EXTENSION and run BODY.
@@ -101,6 +103,59 @@ BODY is evaluated with `file' bound to the note's path."
       (should (equal (plist-get meta :title) "Org Note"))
       (should (equal (plist-get meta :tags) '("alpha" "beta" "gamma")))
       (should (equal (plist-get meta :links) '("Other"))))))
+
+(ert-deftest grove-note-header-round-trips-markdown-titles ()
+  "A title grove writes must be a title grove reads back.
+Front matter is YAML, so a colon or a quote in the title has to be
+quoted and escaped or other tools misread the file."
+  (let ((grove-default-format 'md))
+    (dolist (title '("Project: Alpha" "Say \"Hello\"" "Back\\slash" "Plain"))
+      (grove-markdown-test--with-note ".md" (grove--note-header title)
+        (should (equal (plist-get (grove--parse-note file) :title) title))))))
+
+(ert-deftest grove-new-note-filename-follows-the-default-format ()
+  (should (equal (let ((grove-default-format 'org))
+                   (grove--new-note-filename "Some Note"))
+                 "some-note.org"))
+  (should (equal (let ((grove-default-format 'md))
+                   (grove--new-note-filename "Some Note"))
+                 "some-note.md")))
+
+(ert-deftest grove-note-header-rejects-an-unknown-format ()
+  (let ((grove-default-format 'rst))
+    (should-error (grove--note-header "Note") :type 'user-error)))
+
+(ert-deftest grove-capture-finalize-writes-the-default-format ()
+  (let* ((grove-profiles nil)
+         (grove--active-profile nil)
+         (grove-directory (make-temp-file "grove-vault" t))
+         (grove-default-format 'md))
+    (unwind-protect
+        (with-temp-buffer
+          (insert "Captured Note
+Body line
+")
+          (grove-capture-finalize)
+          (let ((path (buffer-file-name)))
+            (should (equal (file-name-nondirectory path) "captured-note.md"))
+            (should (equal (buffer-string)
+                           "---\ntitle: \"Captured Note\"\n---\n\nBody line\n"))
+            (kill-buffer (current-buffer))))
+      (delete-directory grove-directory t))))
+
+(ert-deftest grove-link-follow-creates-the-default-format ()
+  (let* ((grove-profiles nil)
+         (grove--active-profile nil)
+         (grove-directory (make-temp-file "grove-vault" t))
+         (grove-default-format 'md))
+    (unwind-protect
+        (cl-letf (((symbol-function 'grove-link--resolve) (lambda (_title) nil))
+                  ((symbol-function 'y-or-n-p) (lambda (&rest _) t)))
+          (grove-link-follow "New Note")
+          (should (equal (file-name-nondirectory (buffer-file-name)) "new-note.md"))
+          (should (equal (buffer-string) "---\ntitle: \"New Note\"\n---\n\n"))
+          (kill-buffer (current-buffer)))
+      (delete-directory grove-directory t))))
 
 (provide 'grove-markdown-test)
 ;;; grove-markdown-test.el ends here

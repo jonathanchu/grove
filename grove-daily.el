@@ -37,13 +37,15 @@ it is created with a title template."
   (interactive)
   (grove--ensure-directory)
   (let* ((time (or time (current-time)))
-         (filename (concat (format-time-string grove-daily-format time) ".org"))
+         (filename (concat (format-time-string grove-daily-format time)
+                           (grove--new-note-extension)))
          (path (expand-file-name filename (grove--daily-path)))
          (new-p (not (file-exists-p path))))
     (find-file path)
     (when new-p
-      (insert "#+title: " (format-time-string "%A, %B %e, %Y" time) "\n")
-      (insert "#+date: " (format-time-string "%F" time) "\n\n")
+      (insert (grove--note-header (format-time-string "%A, %B %e, %Y" time)
+                                  (format-time-string "%F" time))
+              "\n")
       (save-buffer))))
 
 ;;;###autoload

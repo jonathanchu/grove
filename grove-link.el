@@ -146,10 +146,10 @@ If the note doesn't exist, offer to create it."
           (message "Note \"%s\" is in profile [%s] — switch profiles to follow"
                    title other-profile))
          ((y-or-n-p (format "Note \"%s\" not found.  Create it? " title))
-          (let* ((filename (concat (grove--sanitize-filename title) ".org"))
+          (let* ((filename (grove--new-note-filename title))
                  (path (grove--unique-path (grove--active-directory) filename)))
             (find-file path)
-            (insert "#+title: " title "\n\n")))
+            (insert (grove--note-header title) "\n")))
          (t (message "Link not followed")))))))
 
 ;;;; Insert

@@ -71,6 +71,16 @@ title and tags are read with the Org rules."
   :type '(repeat string)
   :group 'grove)
 
+(defcustom grove-default-format 'org
+  "Format used for notes grove creates.
+Affects `grove-capture', `grove-daily', and the note offered when a
+wikilink points at a title the vault does not have yet.  Notes that
+already exist are always read in their own format, whatever this is
+set to."
+  :type '(choice (const :tag "Org" org)
+                 (const :tag "Markdown" md))
+  :group 'grove)
+
 (defcustom grove-inbox-directory "inbox"
   "Subdirectory of `grove-directory' for captured notes.
 Relative to `grove-directory'."
@@ -256,16 +266,24 @@ Appends a numeric suffix if the file already exists."
 ;;;; Note formats
 
 (defconst grove--formats
-  '((org :extension "org" :metadata-fn grove--org-metadata)
-    (md  :extension "md"  :metadata-fn grove--md-metadata))
+  '((org :extension "org" :mode org-mode
+         :metadata-fn grove--org-metadata :header-fn grove--org-header)
+    (md  :extension "md"  :mode markdown-mode
+         :metadata-fn grove--md-metadata :header-fn grove--md-header))
   "Alist of note formats grove understands.
 Each entry is (FORMAT . PLIST).  `:extension' is the file extension
-that selects the format, `:metadata-fn' a function returning the
-note's (TITLE . TAGS) from the current buffer.")
+that selects the format, `:mode' the major mode for editing it,
+`:metadata-fn' a function returning the note's (TITLE . TAGS) from the
+current buffer, and `:header-fn' a function returning the header text
+for a new note.")
 
 (defun grove--format-property (format property)
-  "Return PROPERTY of FORMAT, or nil if FORMAT is unknown."
-  (plist-get (cdr (assq format grove--formats)) property))
+  "Return PROPERTY of FORMAT.
+Signals an error when FORMAT names no format grove knows."
+  (let ((entry (assq format grove--formats)))
+    (unless entry
+      (user-error "Unknown grove format: %s (see `grove--formats')" format))
+    (plist-get (cdr entry) property)))
 
 (defun grove--format-for-file (file)
   "Return the format symbol for FILE, based on its extension.
@@ -295,15 +313,31 @@ Reads #+title: and #+filetags:.  Either element is nil when absent."
     (cons title tags)))
 
 (defun grove--md-unquote (string)
-  "Return STRING trimmed of surrounding quotes and a leading hash.
-Markdown front matter writes tags both as \"tag\" and as #tag; grove
-stores them bare so they match the inline #hashtags of a note body."
-  (let ((trimmed (string-trim string)))
-    (when (and (> (length trimmed) 1)
-               (memq (aref trimmed 0) '(?\" ?'))
-               (eq (aref trimmed 0) (aref trimmed (1- (length trimmed)))))
-      (setq trimmed (substring trimmed 1 -1)))
-    (string-remove-prefix "#" trimmed)))
+  "Return STRING with a matching pair of surrounding YAML quotes removed.
+Escapes inside the quotes are resolved: backslash escapes for a
+double-quoted scalar, doubled quotes for a single-quoted one."
+  (let* ((trimmed (string-trim string))
+         (size (length trimmed))
+         (first (and (> size 1) (aref trimmed 0))))
+    (cond
+     ((and (eq first ?\") (eq (aref trimmed (1- size)) ?\"))
+      (replace-regexp-in-string "\\\\\\(.\\)" "\\1"
+                                (substring trimmed 1 -1) t))
+     ((and (eq first ?') (eq (aref trimmed (1- size)) ?'))
+      (replace-regexp-in-string "''" "'" (substring trimmed 1 -1) t))
+     (t trimmed))))
+
+(defun grove--md-quote (string)
+  "Return STRING as a double-quoted YAML scalar.
+Quoting unconditionally keeps a title containing a colon readable by
+other tools, which would otherwise parse it as a nested key."
+  (concat "\"" (replace-regexp-in-string "[\\\"]" "\\\\\\&" string) "\""))
+
+(defun grove--md-normalize-tag (string)
+  "Return the tag named by front matter entry STRING.
+Front matter writes tags both as \"tag\" and as #tag; grove stores them
+bare so they match the inline #hashtags of a note body."
+  (string-remove-prefix "#" (grove--md-unquote string)))
 
 (defun grove--md-frontmatter-end ()
   "Return the position where YAML front matter ends, or nil if there is none.
@@ -338,13 +372,14 @@ own line (\"tags: [a, b]\" or \"tags: a, b\") and a block sequence of
                         (zerop (forward-line 1))
                         (< (point) end)
                         (looking-at "[[:blank:]]*-[[:blank:]]*\\(.+\\)$"))
-              (let ((tag (grove--md-unquote (match-string-no-properties 1))))
+              (let ((tag (grove--md-normalize-tag
+                          (match-string-no-properties 1))))
                 (if (string-empty-p tag)
                     (setq scanning nil)
                   (push tag tags)))))
         (dolist (tag (split-string (string-trim inline "\\[" "\\]") "," t))
           (dolist (word (split-string tag nil t))
-            (push (grove--md-unquote word) tags))))
+            (push (grove--md-normalize-tag word) tags))))
       (nreverse (seq-remove #'string-empty-p tags)))))
 
 (defun grove--md-metadata ()
@@ -478,6 +513,47 @@ Downcases, replaces spaces with hyphens, strips non-alphanumeric characters."
     (setq name (replace-regexp-in-string "\\s-+" "-" name))
     (setq name (replace-regexp-in-string "^-+\\|-+$" "" name))
     (if (string-empty-p name) "untitled" name)))
+
+;;;; New notes
+
+(defun grove--org-header (title date)
+  "Return the Org header for a new note titled TITLE.
+DATE, when non-nil, is recorded as a #+date: keyword."
+  (concat "#+title: " title "\n"
+          (if date (concat "#+date: " date "\n") "")))
+
+(defun grove--md-header (title date)
+  "Return the Markdown header for a new note titled TITLE.
+DATE, when non-nil, is recorded as a date: key.  Grove writes YAML
+front matter rather than a bare heading so that titles surviving no
+filename -- ones with punctuation, or a date alongside them -- round
+trip, and reads all three Obsidian conventions back regardless."
+  (concat "---\n"
+          "title: " (grove--md-quote title) "\n"
+          (if date (concat "date: " date "\n") "")
+          "---\n"))
+
+(defun grove--note-header (title &optional date)
+  "Return the header text for a new note titled TITLE.
+DATE is an optional ISO date string recorded alongside the title.
+The syntax follows `grove-default-format'."
+  (funcall (grove--format-property grove-default-format :header-fn)
+           title date))
+
+(defun grove--new-note-extension ()
+  "Return the extension, leading dot included, for notes grove creates."
+  (concat "." (grove--format-property grove-default-format :extension)))
+
+(defun grove--new-note-filename (title)
+  "Return a filename for a new note titled TITLE."
+  (concat (grove--sanitize-filename title) (grove--new-note-extension)))
+
+(defun grove--enable-format-mode ()
+  "Enable the major mode for `grove-default-format' in the current buffer.
+Falls back to `text-mode' when that mode is unavailable, which is the
+case for Markdown unless the user has installed `markdown-mode'."
+  (let ((mode (grove--format-property grove-default-format :mode)))
+    (if (fboundp mode) (funcall mode) (text-mode))))
 
 (defun grove-file-p (file)
   "Return non-nil if FILE is inside the active grove directory.
