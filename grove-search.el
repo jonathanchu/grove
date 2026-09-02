@@ -32,7 +32,7 @@
 (require 'subr-x)
 
 (declare-function consult--grep "consult")
-(declare-function consult--grep-make-builder "consult")
+(declare-function consult--ripgrep-make-builder "consult")
 (declare-function consult--find "consult")
 (defvar consult-ripgrep-args)
 
@@ -54,7 +54,7 @@ available, otherwise falls back to `grep'."
   (let ((consult-ripgrep-args
          (concat consult-ripgrep-args " "
                  (string-join (grove--rg-glob-args) " "))))
-    (consult--grep "Grove search" #'consult--grep-make-builder
+    (consult--grep "Grove search" #'consult--ripgrep-make-builder
                    (grove--active-directory) initial)))
 
 (defun grove-search--grep (&optional initial)
@@ -110,7 +110,7 @@ With optional INITIAL input string.  Searches for both org-style
         (let ((consult-ripgrep-args
                (concat consult-ripgrep-args " "
                        (string-join (grove--rg-glob-args) " "))))
-          (consult--grep "Grove tags" #'consult--grep-make-builder
+          (consult--grep "Grove tags" #'consult--ripgrep-make-builder
                          (grove--active-directory) pattern))
       (grep (format "rg --no-heading --line-number %s %s %s"
                     (mapconcat #'shell-quote-argument (grove--rg-glob-args) " ")
