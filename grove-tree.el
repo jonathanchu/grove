@@ -99,6 +99,15 @@ Requires a Nerd Font to be installed and active."
 (defvar grove-tree--tracking-enabled nil
   "Non-nil when Grove is tracking the current file across window changes.")
 
+(defconst grove-tree--preview-buffer-name "*grove-preview*"
+  "Name of the reusable transient tree preview buffer.")
+
+(defvar grove-tree--preview-buffer nil
+  "Reusable buffer used for transient tree previews.")
+
+(defvar grove-tree--preview-file nil
+  "Path of the file currently shown in `grove-tree--preview-buffer'.")
+
 (defun grove-tree--indent-string (depth)
   "Return an indent guide string for DEPTH levels of nesting."
   (if (zerop depth)
@@ -253,6 +262,21 @@ Directories come first, then files.  Hidden files are excluded."
         (ewoc-delete grove-tree--ewoc to-delete))))
   (remhash (grove-tree-node-path node) grove-tree--expanded))
 
+(defun grove-tree--preview-buffer ()
+  "Return the reusable transient tree preview buffer."
+  (unless (buffer-live-p grove-tree--preview-buffer)
+    (setq grove-tree--preview-buffer
+          (get-buffer-create grove-tree--preview-buffer-name)))
+  grove-tree--preview-buffer)
+
+(defun grove-tree--cleanup-preview (&optional kill-buffer)
+  "Clear transient tree preview state.
+When KILL-BUFFER is non-nil, also kill the preview buffer."
+  (when (and kill-buffer (buffer-live-p grove-tree--preview-buffer))
+    (kill-buffer grove-tree--preview-buffer))
+  (setq grove-tree--preview-buffer nil
+        grove-tree--preview-file nil))
+
 (defun grove-tree--preview ()
   "Preview the file at point in the main window without switching focus."
   (interactive)
@@ -260,10 +284,22 @@ Directories come first, then files.  Hidden files are excluded."
     (when ewoc-node
       (let ((node (ewoc-data ewoc-node)))
         (unless (grove-tree-node-directory-p node)
-          (let ((path (grove-tree-node-path node))
-                (win (or (grove-tree--main-window) (next-window))))
-            (with-selected-window win
-              (find-file path))))))))
+          (let* ((path (grove-tree-node-path node))
+                 (existing-buffer (find-buffer-visiting path))
+                 (win (or (grove-tree--main-window) (next-window)))
+                 (buf (or existing-buffer (grove-tree--preview-buffer))))
+            (unless (or existing-buffer (equal path grove-tree--preview-file))
+              (with-current-buffer buf
+                (let ((inhibit-read-only t))
+                  (setq buffer-read-only nil)
+                  (erase-buffer)
+                  (insert-file-contents path)
+                  (setq default-directory (file-name-directory path))
+                  (org-mode)
+                  (setq-local buffer-read-only t)
+                  (set-buffer-modified-p nil)))
+              (setq grove-tree--preview-file path))
+            (set-window-buffer win buf)))))))
 
 (defun grove-tree--open-file ()
   "Open the file at point in the main window and focus it."
@@ -274,6 +310,7 @@ Directories come first, then files.  Hidden files are excluded."
         (if (grove-tree-node-directory-p node)
             (grove-tree--toggle-expand)
           (let ((path (grove-tree-node-path node)))
+            (grove-tree--cleanup-preview t)
             (grove-tree--set-current-file path)
             (select-window
              (or (grove-tree--main-window)
@@ -450,6 +487,7 @@ insert its visible descendants."
   "Close the tree sidebar."
   (interactive)
   (grove-tree--disable-tracking)
+  (grove-tree--cleanup-preview t)
   (let ((win (get-buffer-window grove-tree-buffer-name)))
     (when win
       (delete-window win)))
