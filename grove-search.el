@@ -32,9 +32,10 @@
 (require 'subr-x)
 
 (declare-function consult--grep "consult")
-(declare-function consult--grep-make-builder "consult")
+(declare-function consult--ripgrep-make-builder "consult")
 (declare-function consult--find "consult")
 (defvar consult-ripgrep-args)
+(defvar consult-async-split-style)
 
 ;;;; Full-text search
 
@@ -46,15 +47,19 @@ available, otherwise falls back to `grep'."
   (interactive)
   (grove--ensure-directory)
   (if (featurep 'consult)
-      (grove-search--consult-ripgrep initial)
+      (grove-search--consult-ripgrep "Grove search" initial)
     (grove-search--grep initial)))
 
-(defun grove-search--consult-ripgrep (&optional initial)
-  "Search vault with consult-ripgrep.  INITIAL is the initial input."
+(defun grove-search--consult-ripgrep (prompt &optional initial split-style)
+  "Search the vault with consult and ripgrep.
+PROMPT is the minibuffer prompt and INITIAL the initial input, which
+Consult reads as an Emacs regexp.  SPLIT-STYLE overrides
+`consult-async-split-style' for this search."
   (let ((consult-ripgrep-args
          (concat consult-ripgrep-args " "
-                 (string-join (grove--rg-glob-args) " "))))
-    (consult--grep "Grove search" #'consult--grep-make-builder
+                 (string-join (grove--rg-glob-args) " ")))
+        (consult-async-split-style (or split-style consult-async-split-style)))
+    (consult--grep prompt #'consult--ripgrep-make-builder
                    (grove--active-directory) initial)))
 
 (defun grove-search--grep (&optional initial)
@@ -89,13 +94,19 @@ plain tag name."
     (setq normalized (replace-regexp-in-string "\\`:+\\|:+\\'" "" normalized))
     normalized))
 
-(defun grove-search--tag-pattern (tag)
-  "Build a ripgrep pattern for TAG."
+(defun grove-search--tag-pattern (tag &optional syntax)
+  "Build a search pattern for TAG.
+SYNTAX defaults to `rg', producing a pattern handed straight to
+ripgrep.  With `emacs' the pattern uses Emacs regexp syntax, which is
+what Consult expects: it reads its input as an Emacs regexp and
+converts it to the backend syntax itself."
   (let* ((normalized (grove-search--normalize-tag tag))
          (quoted (regexp-quote normalized)))
     (when (string-empty-p normalized)
       (user-error "Tag cannot be empty"))
-    (format "(#%s\\b|:%s:)" quoted quoted)))
+    (if (eq syntax 'emacs)
+        (format "\\(#%s\\b\\|:%s:\\)" quoted quoted)
+      (format "(#%s\\b|:%s:)" quoted quoted))))
 
 ;;;###autoload
 (defun grove-search-tag (&optional initial)
@@ -104,18 +115,18 @@ With optional INITIAL input string.  Searches for both org-style
 :tag: and inline #tag patterns."
   (interactive)
   (grove--ensure-directory)
-  (let* ((tag (or initial (read-string "Tag: ")))
-         (pattern (grove-search--tag-pattern tag)))
+  (let ((tag (or initial (read-string "Tag: "))))
     (if (featurep 'consult)
-        (let ((consult-ripgrep-args
-               (concat consult-ripgrep-args " "
-                       (string-join (grove--rg-glob-args) " "))))
-          (consult--grep "Grove tags" #'consult--grep-make-builder
-                         (grove--active-directory) pattern))
-      (grep (format "rg --no-heading --line-number %s %s %s"
-                    (mapconcat #'shell-quote-argument (grove--rg-glob-args) " ")
-                    (shell-quote-argument pattern)
-                    (shell-quote-argument (grove--active-directory)))))))
+        ;; Force the `none' split style: the default `perl' style takes its
+        ;; separator from the leading punctuation character and would
+        ;; truncate the pattern at its first `#'.
+        (grove-search--consult-ripgrep
+         "Grove tags" (grove-search--tag-pattern tag 'emacs) 'none)
+      (let ((pattern (grove-search--tag-pattern tag)))
+        (grep (format "rg --no-heading --line-number %s %s %s"
+                      (mapconcat #'shell-quote-argument (grove--rg-glob-args) " ")
+                      (shell-quote-argument pattern)
+                      (shell-quote-argument (grove--active-directory))))))))
 
 (provide 'grove-search)
 ;;; grove-search.el ends here

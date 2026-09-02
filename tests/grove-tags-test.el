@@ -38,5 +38,17 @@
   (should (equal (grove-search--tag-pattern "#a+b?")
                  "(#a\\+b\\?\\b|:a\\+b\\?:)")))
 
+(ert-deftest grove-search-tag-pattern-emacs-syntax-groups-alternation ()
+  ;; Consult reads its input as an Emacs regexp, so groups and alternation
+  ;; must be backslash-escaped or they reach ripgrep as literals.
+  (should (equal (grove-search--tag-pattern "work" 'emacs)
+                 "\\(#work\\b\\|:work:\\)"))
+  (should (equal (grove-search--tag-pattern "#a+b?" 'emacs)
+                 "\\(#a\\+b\\?\\b\\|:a\\+b\\?:\\)")))
+
+(ert-deftest grove-search-tag-pattern-rejects-empty-tag ()
+  (should-error (grove-search--tag-pattern "#") :type 'user-error)
+  (should-error (grove-search--tag-pattern "  " 'emacs) :type 'user-error))
+
 (provide 'grove-tags-test)
 ;;; grove-tags-test.el ends here
